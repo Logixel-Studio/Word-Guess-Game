@@ -1,0 +1,56 @@
+{
+  "name": "Product",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Product name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description"
+    },
+    "materials": {
+      "type": "array",
+      "description": "Raw materials used",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number"
+          },
+          "unit_price": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "production_cost": {
+      "type": "number",
+      "description": "Total cost of materials"
+    },
+    "stock_qty": {
+      "type": "number",
+      "default": 0,
+      "description": "Available stock quantity"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "in_stock",
+        "low_stock",
+        "out_of_stock"
+      ],
+      "default": "in_stock"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

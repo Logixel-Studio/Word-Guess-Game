@@ -1,0 +1,17 @@
+{
+  "name": "PurchaseType",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Purchase type name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

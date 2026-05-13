@@ -1,0 +1,33 @@
+{
+  "name": "Client",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Client name"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Client phone number"
+    },
+    "address": {
+      "type": "string",
+      "description": "Client address"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description or notes"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "name": "Expense",
+  "type": "object",
+  "properties": {
+    "expense_type_id": {
+      "type": "string",
+      "description": "Reference to expense type"
+    },
+    "expense_type_name": {
+      "type": "string",
+      "description": "Expense type display name"
+    },
+    "qty": {
+      "type": "number",
+      "description": "Quantity"
+    },
+    "unit_price": {
+      "type": "number",
+      "description": "Price per unit"
+    },
+    "total": {
+      "type": "number",
+      "description": "Auto-calculated total"
+    },
+    "description": {
+      "type": "string",
+      "description": "Notes"
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "paid",
+        "unpaid",
+        "partial"
+      ],
+      "default": "unpaid"
+    },
+    "paid_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Amount paid so far"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Payment due date"
+    }
+  },
+  "required": [
+    "expense_type_id",
+    "qty",
+    "unit_price"
+  ]
+}

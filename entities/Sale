@@ -1,0 +1,71 @@
+{
+  "name": "Sale",
+  "type": "object",
+  "properties": {
+    "client_id": {
+      "type": "string",
+      "description": "Reference to client"
+    },
+    "client_name": {
+      "type": "string",
+      "description": "Client display name"
+    },
+    "product_id": {
+      "type": "string",
+      "description": "Reference to product"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Product display name"
+    },
+    "qty": {
+      "type": "number",
+      "description": "Quantity sold"
+    },
+    "unit_price": {
+      "type": "number",
+      "description": "Selling price per unit"
+    },
+    "total": {
+      "type": "number",
+      "description": "Auto-calculated total"
+    },
+    "cost_per_unit": {
+      "type": "number",
+      "description": "Production cost per unit"
+    },
+    "profit": {
+      "type": "number",
+      "description": "Profit from this sale"
+    },
+    "description": {
+      "type": "string",
+      "description": "Notes"
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "paid",
+        "unpaid",
+        "partial"
+      ],
+      "default": "unpaid"
+    },
+    "paid_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Amount paid so far"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Payment due date"
+    }
+  },
+  "required": [
+    "client_id",
+    "product_id",
+    "qty",
+    "unit_price"
+  ]
+}
