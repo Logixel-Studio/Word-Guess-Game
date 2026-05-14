@@ -59,7 +59,8 @@ export const AuthProvider = ({ children }) => {
       if (session?.user) {
         setUser(session.user);
         setIsAuthenticated(true);
-        await ensureProfile(session.user);
+        // await ensureProfile(session.user);
+        await fetchProfile(session.user.id);
       } else {
         setIsAuthenticated(false);
         setCreatorContext({ id: null, name: null, email: null });
@@ -75,7 +76,8 @@ export const AuthProvider = ({ children }) => {
       if (session?.user) {
         setUser(session.user);
         setIsAuthenticated(true);
-        await ensureProfile(session.user);
+        // await ensureProfile(session.user);
+        await fetchProfile(session.user.id);
       } else {
         setUser(null);
         setProfile(null);
