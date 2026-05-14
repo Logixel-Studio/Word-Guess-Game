@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await supabase
         .from('user_profiles')
-        .select('id, full_name, email, avatar_url, created_at')
+        .select('*')
         .eq('id', userId)
         .single();
       if (data) {
@@ -75,8 +75,7 @@ export const AuthProvider = ({ children }) => {
         setUser(authUser);
         setIsAuthenticated(true);
         userIdRef.current = authUser.id;
-        // await ensureProfile(authUser);
-        await fetchProfile(authUser.id);
+        await ensureProfile(authUser);
       } finally {
         fetchingRef.current = false;
       }
@@ -137,26 +136,22 @@ export const AuthProvider = ({ children }) => {
     setCreatorContext({ id: null, name: null, email: null });
   }, []);
 
-  // const checkUserAuth = useCallback(async () => {
-  //   try {
-  //     setIsLoadingAuth(true);
-  //     const { data: { user: currentUser } } = await supabase.auth.getUser();
-  //     if (currentUser) {
-  //       setUser(currentUser);
-  //       setIsAuthenticated(true);
-  //       await ensureProfile(currentUser);
-  //     }
-  //   } catch {}
-  //   setIsLoadingAuth(false);
-  //   setAuthChecked(true);
-  // }, [ensureProfile]);
+  const checkUserAuth = useCallback(async () => {
+    try {
+      setIsLoadingAuth(true);
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        setUser(currentUser);
+        setIsAuthenticated(true);
+        await ensureProfile(currentUser);
+      }
+    } catch {}
+    setIsLoadingAuth(false);
+    setAuthChecked(true);
+  }, [ensureProfile]);
 
-  // const checkAppState = useCallback(async () => { await checkUserAuth(); }, [checkUserAuth]);
-
-
-
-
-  const navigateToLogin = useCallback(() => { }, []);
+  const checkAppState = useCallback(async () => { await checkUserAuth(); }, [checkUserAuth]);
+  const navigateToLogin = useCallback(() => {}, []);
 
   const displayName = profile?.full_name
     || user?.user_metadata?.full_name
@@ -167,12 +162,10 @@ export const AuthProvider = ({ children }) => {
   const value = useMemo(() => ({
     user, profile, displayName, isAuthenticated, isLoadingAuth,
     isLoadingPublicSettings, authError, appPublicSettings, authChecked,
-    // logout, navigateToLogin, checkUserAuth, checkAppState, fetchProfile, ensureProfile,
-    logout, navigateToLogin, fetchProfile, ensureProfile,
+    logout, navigateToLogin, checkUserAuth, checkAppState, fetchProfile, ensureProfile,
   }), [
     user, profile, displayName, isAuthenticated, isLoadingAuth, authChecked,
-    // logout, checkUserAuth, checkAppState, fetchProfile, ensureProfile,
-    logout, fetchProfile, ensureProfile,
+    logout, checkUserAuth, checkAppState, fetchProfile, ensureProfile,
     isLoadingPublicSettings, authError, appPublicSettings, navigateToLogin,
   ]);
 
