@@ -126,7 +126,7 @@ export default function Profile() {
                 ) : (
                   <div className="flex gap-2 mt-1">
                     <Input value={currentName} readOnly className="bg-muted" />
-                    <Button size="sm" variant="outline" onClick={() => { setEditName(currentName); setEditing(true); }}>Edit</Button>
+                    {/* <Button size="sm" variant="outline" onClick={() => { setEditName(currentName); setEditing(true); }}>Edit</Button> */}
                   </div>
                 )}
               </div>
