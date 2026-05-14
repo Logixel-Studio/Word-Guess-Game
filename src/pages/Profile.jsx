@@ -17,7 +17,6 @@ export default function Profile() {
   const [editName, setEditName] = useState('');
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState('');
   const [uploading, setUploading] = useState(false);
 
   const currentName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
@@ -29,8 +28,13 @@ export default function Profile() {
     setUploading(true);
     try {
       const { file_url } = await uploadFile(file, 'avatars');
-      await supabase.from('user_profiles').update({ avatar_url: file_url }).eq('id', user.id);
-      await supabase.auth.updateUser({ data: { avatar_url: file_url } });
+      // Update DB only (avoid triggering auth state change loop)
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ avatar_url: file_url })
+        .eq('id', user.id);
+      if (error) throw error;
+      // Refresh profile state directly without triggering auth cycle
       if (user) await fetchProfile(user.id);
       toast.success('Profile photo updated');
     } catch (err) {
@@ -43,8 +47,13 @@ export default function Profile() {
     if (!editName.trim()) { toast.error('Name cannot be empty'); return; }
     setSaving(true);
     try {
-      await supabase.from('user_profiles').update({ full_name: editName.trim() }).eq('id', user.id);
-      await supabase.auth.updateUser({ data: { full_name: editName.trim() } });
+      // Update DB profile — single operation, no auth metadata update to avoid loops
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ full_name: editName.trim() })
+        .eq('id', user.id);
+      if (error) throw error;
+      // Refresh profile state
       if (user) await fetchProfile(user.id);
       setEditing(false);
       toast.success('Name updated');
@@ -117,7 +126,7 @@ export default function Profile() {
                 ) : (
                   <div className="flex gap-2 mt-1">
                     <Input value={currentName} readOnly className="bg-muted" />
-                    {/* <Button size="sm" variant="outline" onClick={() => { setEditName(currentName); setEditing(true); }}>Edit</Button> */}
+                    <Button size="sm" variant="outline" onClick={() => { setEditName(currentName); setEditing(true); }}>Edit</Button>
                   </div>
                 )}
               </div>

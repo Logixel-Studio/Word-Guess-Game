@@ -32,8 +32,8 @@ function getDaysSince(dateStr) {
   return Math.floor(diff / 86400000);
 }
 
-function EditMemberDialog({ member, open, onClose, onSaved }) {
-  const [fullName, setFullName] = useState(member?.full_name || '');
+// Avatar-only edit dialog — name editing removed to prevent data conflicts
+function EditAvatarDialog({ member, open, onClose, onSaved }) {
   const [avatarUrl, setAvatarUrl] = useState(member?.avatar_url || '');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -52,15 +52,14 @@ function EditMemberDialog({ member, open, onClose, onSaved }) {
   };
 
   const handleSave = async () => {
-    if (!fullName.trim()) { toast.error('Name is required'); return; }
     setSaving(true);
     try {
       const { error } = await supabase
         .from('user_profiles')
-        .update({ full_name: fullName.trim(), avatar_url: avatarUrl })
+        .update({ avatar_url: avatarUrl })
         .eq('id', member.id);
       if (error) throw error;
-      toast.success('Profile updated');
+      toast.success('Profile photo updated');
       onSaved();
       onClose();
     } catch (err) {
@@ -69,18 +68,20 @@ function EditMemberDialog({ member, open, onClose, onSaved }) {
     setSaving(false);
   };
 
+  const displayName = member?.full_name || member?.email?.split('@')[0] || 'Unknown';
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Edit Team Member</DialogTitle>
+          <DialogTitle>Edit Profile Photo</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="flex flex-col items-center gap-3">
             <Avatar className="w-20 h-20">
               <AvatarImage src={avatarUrl} />
               <AvatarFallback className="text-xl bg-primary/10 text-primary">
-                {getMemberInitials(fullName)}
+                {getMemberInitials(displayName)}
               </AvatarFallback>
             </Avatar>
             <label className="cursor-pointer text-xs text-primary hover:underline flex items-center gap-1">
@@ -90,8 +91,8 @@ function EditMemberDialog({ member, open, onClose, onSaved }) {
             </label>
           </div>
           <div>
-            <Label>Full Name</Label>
-            <Input value={fullName} onChange={e => setFullName(e.target.value)} className="mt-1" />
+            <Label>Name</Label>
+            <Input value={displayName} readOnly className="mt-1 bg-muted" />
           </div>
           <div>
             <Label>Email</Label>
@@ -99,9 +100,9 @@ function EditMemberDialog({ member, open, onClose, onSaved }) {
           </div>
           <div className="flex gap-2 pt-1">
             <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
-            <Button onClick={handleSave} disabled={saving} className="flex-1">
+            <Button onClick={handleSave} disabled={saving || uploading} className="flex-1">
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-              Save
+              Save Photo
             </Button>
           </div>
         </div>
@@ -114,6 +115,9 @@ function MemberCard({ member, currentUserId, onEdit, onDelete, expanded, onToggl
   const days = getDaysSince(member.created_at);
   const isRecent = days !== null && days <= 7;
   const isCurrentUser = member.id === currentUserId;
+
+  // Stable display name with email fallback — never blank
+  const displayName = member.full_name || member.email?.split('@')[0] || 'Unknown User';
 
   return (
     <motion.div
@@ -129,14 +133,14 @@ function MemberCard({ member, currentUserId, onEdit, onDelete, expanded, onToggl
         <Avatar className="w-11 h-11 flex-shrink-0">
           <AvatarImage src={member.avatar_url} />
           <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
-            {getMemberInitials(member.full_name || member.email)}
+            {getMemberInitials(displayName)}
           </AvatarFallback>
         </Avatar>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-semibold text-foreground truncate">
-              {member.full_name || member.email?.split('@')[0]}
+              {displayName}
             </p>
             {isCurrentUser && (
               <span className="text-[10px] font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">You</span>
@@ -214,11 +218,12 @@ export default function Team() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('*')
+        .select('id, email, full_name, avatar_url, role, created_at')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
-    }
+    },
+    staleTime: 30_000, // don't re-fetch for 30s
   });
 
   const deleteMut = useMutation({
@@ -227,11 +232,14 @@ export default function Team() {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['user_profiles'] });
+      // Optimistically update cache instead of full refetch
+      qc.setQueryData(['user_profiles'], (old) =>
+        (old || []).filter((m) => m.id !== deleteId)
+      );
       toast.success('Member removed');
       setDeleteId(null);
     },
-    onError: (err) => toast.error(err.message)
+    onError: (err) => toast.error(err.message),
   });
 
   const filtered = members.filter(m => {
@@ -243,7 +251,10 @@ export default function Team() {
     );
   });
 
-  const recentMembers = members.filter(m => getDaysSince(m.created_at) <= 7).length;
+  const recentMembers = members.filter(m => {
+    const d = getDaysSince(m.created_at);
+    return d !== null && d <= 7;
+  }).length;
 
   return (
     <div>
@@ -304,7 +315,7 @@ export default function Team() {
       )}
 
       {editingMember && (
-        <EditMemberDialog
+        <EditAvatarDialog
           member={editingMember}
           open={!!editingMember}
           onClose={() => setEditingMember(null)}
