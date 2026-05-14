@@ -1,0 +1,9 @@
+{
+  "name": "NUTRIMETH BMS",
+  "short_name": "NUTRIMETH",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "icons": []
+}
