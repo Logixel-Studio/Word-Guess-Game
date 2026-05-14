@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await supabase
         .from('user_profiles')
-        .select('*')
+        .select('id, full_name, email, avatar_url, created_at')
         .eq('id', userId)
         .single();
       if (data) {
@@ -75,7 +75,8 @@ export const AuthProvider = ({ children }) => {
         setUser(authUser);
         setIsAuthenticated(true);
         userIdRef.current = authUser.id;
-        await ensureProfile(authUser);
+        // await ensureProfile(authUser);
+        await fetchProfile(authUser.id);
       } finally {
         fetchingRef.current = false;
       }
