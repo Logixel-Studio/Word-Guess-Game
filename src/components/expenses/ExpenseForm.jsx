@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+// import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '@/api/supabaseClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 
 export default function ExpenseForm({ open, onClose, editing, expenseTypes }) {
-  const qc = useQueryClient();
+  // const qc = useQueryClient();
   const { register, handleSubmit, reset, setValue, watch } = useForm();
   const qty = watch('qty') || 0;
   const unitPrice = watch('unit_price') || 0;
@@ -45,7 +45,11 @@ export default function ExpenseForm({ open, onClose, editing, expenseTypes }) {
       };
       return editing ? db.Expense.update(editing.id, payload) : db.Expense.create(payload);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['expenses'] }); toast.success(editing ? 'Updated' : 'Created'); onClose(); }
+    onSuccess: () => {
+      // qc.invalidateQueries({ queryKey: ['expenses'] }); 
+      toast.success(editing ? 'Updated' : 'Created'); 
+      onClose();
+    }
   });
 
   return (

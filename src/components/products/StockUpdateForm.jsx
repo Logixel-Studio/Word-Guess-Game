@@ -19,7 +19,9 @@ export default function StockUpdateForm({ product, onClose }) {
       else if (newQty <= 5) status = 'low_stock';
       return db.Product.update(product.id, { stock_qty: newQty, status });
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast.success('Stock updated'); onClose(); setQty(''); }
+    onSuccess: () => {
+      //  qc.invalidateQueries({ queryKey: ['products'] });
+        toast.success('Stock updated'); onClose(); setQty(''); }
   });
 
   return (

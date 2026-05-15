@@ -29,7 +29,9 @@ export default function Suppliers() {
 
   const deleteMut = useMutation({
     mutationFn: (id) => db.Supplier.delete(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['suppliers'] }); toast.success('Supplier deleted'); setDeleteId(null); }
+    onSuccess: () => { 
+      // qc.invalidateQueries({ queryKey: ['suppliers'] }); 
+    toast.success('Supplier deleted'); setDeleteId(null); }
   });
 
   const activeSuppliers = suppliers.filter(s => s.status === 'active').length;

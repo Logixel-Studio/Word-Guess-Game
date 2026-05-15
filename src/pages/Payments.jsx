@@ -238,9 +238,9 @@ function PaymentEditDialog({ payment, onClose, qc, formatCurrency }) {
       });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['sales'] });
-      qc.invalidateQueries({ queryKey: ['purchases'] });
-      qc.invalidateQueries({ queryKey: ['expenses'] });
+      // qc.invalidateQueries({ queryKey: ['sales'] });
+      // qc.invalidateQueries({ queryKey: ['purchases'] });
+      // qc.invalidateQueries({ queryKey: ['expenses'] });
       toast.success('Payment updated');
       onClose();
     }

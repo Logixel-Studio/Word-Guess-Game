@@ -20,7 +20,9 @@ export default function ExpenseTypeForm({ open, onClose, editing }) {
 
   const mutation = useMutation({
     mutationFn: (data) => editing ? db.ExpenseType.update(editing.id, data) : db.ExpenseType.create(data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['expenseTypes'] }); toast.success(editing ? 'Updated' : 'Created'); onClose(); }
+    onSuccess: () => {
+      //  qc.invalidateQueries({ queryKey: ['expenseTypes'] });
+     toast.success(editing ? 'Updated' : 'Created'); onClose(); }
   });
 
   return (

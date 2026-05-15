@@ -29,7 +29,9 @@ export default function Clients() {
 
   const deleteMut = useMutation({
     mutationFn: (id) => db.Client.delete(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['clients'] }); toast.success('Client deleted'); setDeleteId(null); }
+    onSuccess: () => {
+      //  qc.invalidateQueries({ queryKey: ['clients'] });
+     toast.success('Client deleted'); setDeleteId(null); }
   });
 
   const activeClients = clients.filter(c => c.status === 'active').length;

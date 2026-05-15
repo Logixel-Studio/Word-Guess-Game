@@ -49,7 +49,9 @@ export default function PurchaseForm({ open, onClose, editing, suppliers, purcha
       };
       return editing ? db.Purchase.update(editing.id, payload) : db.Purchase.create(payload);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['purchases'] }); toast.success(editing ? 'Updated' : 'Created'); onClose(); }
+    onSuccess: () => { 
+      // qc.invalidateQueries({ queryKey: ['purchases'] });
+       toast.success(editing ? 'Updated' : 'Created'); onClose(); }
   });
 
   return (

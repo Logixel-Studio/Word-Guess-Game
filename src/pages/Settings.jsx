@@ -44,7 +44,7 @@ export default function Settings() {
       ? db.CompanySettings.update(settings.id, data)
       : db.CompanySettings.create(data),
     onSuccess: async () => {
-      qc.invalidateQueries({ queryKey: ['settings'] });
+      // qc.invalidateQueries({ queryKey: ['settings'] });
       await refreshSettings(); // Update global currency context immediately
       toast.success('Settings saved — currency updated across app');
     }

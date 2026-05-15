@@ -48,7 +48,9 @@ export default function ProductForm({ open, onClose, editing }) {
       const payload = { ...data, materials, production_cost: productionCost, stock_qty: stockQty, status };
       return editing ? db.Product.update(editing.id, payload) : db.Product.create(payload);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast.success(editing ? 'Updated' : 'Created'); onClose(); }
+    onSuccess: () => {
+      //  qc.invalidateQueries({ queryKey: ['products'] });
+     toast.success(editing ? 'Updated' : 'Created'); onClose(); }
   });
 
   return (

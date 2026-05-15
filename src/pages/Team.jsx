@@ -226,21 +226,51 @@ export default function Team() {
     staleTime: 30_000, // don't re-fetch for 30s
   });
 
-  const deleteMut = useMutation({
-    mutationFn: async (id) => {
-      const { error } = await supabase.from('user_profiles').delete().eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      // Optimistically update cache instead of full refetch
-      qc.setQueryData(['user_profiles'], (old) =>
-        (old || []).filter((m) => m.id !== deleteId)
-      );
-      toast.success('Member removed');
-      setDeleteId(null);
-    },
-    onError: (err) => toast.error(err.message),
-  });
+  // const deleteMut = useMutation({
+  //   mutationFn: async (id) => {
+  //     const { error } = await supabase.from('user_profiles').delete().eq('id', id);
+  //     if (error) throw error;
+  //   },
+  //   onSuccess: () => {
+  //     // Optimistically update cache instead of full refetch
+  //     qc.setQueryData(['user_profiles'], (old) =>
+  //       (old || []).filter((m) => m.id !== deleteId)
+  //     );
+  //     toast.success('Member removed');
+  //     setDeleteId(null);
+  //   },
+  //   onError: (err) => toast.error(err.message),
+  // });
+
+
+
+const deleteMut = useMutation({
+  mutationFn: async (id) => {
+    const { error } = await supabase
+      .from('user_profiles')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    // return deleted id
+    return id;
+  },
+
+  onSuccess: (deletedId) => {
+    qc.setQueryData(['user_profiles'], (old) =>
+      (old || []).filter((m) => m.id !== deletedId)
+    );
+
+    toast.success('Member removed');
+    setDeleteId(null);
+  },
+
+  onError: (err) => {
+    toast.error(err.message);
+  },
+});
+
 
   const filtered = members.filter(m => {
     if (!search) return true;
@@ -319,7 +349,8 @@ export default function Team() {
           member={editingMember}
           open={!!editingMember}
           onClose={() => setEditingMember(null)}
-          onSaved={() => qc.invalidateQueries({ queryKey: ['user_profiles'] })}
+          // onSaved={() => qc.invalidateQueries({ queryKey: ['user_profiles'] })}
+          onSaved={() => }
         />
       )}
       <ConfirmDialog

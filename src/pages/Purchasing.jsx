@@ -35,11 +35,15 @@ export default function Purchasing() {
 
   const deletePurchase = useMutation({
     mutationFn: (id) => db.Purchase.delete(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['purchases'] }); toast.success('Deleted'); setDeleteId(null); }
+    onSuccess: () => { 
+      // qc.invalidateQueries({ queryKey: ['purchases'] });
+     toast.success('Deleted'); setDeleteId(null); }
   });
   const deleteTypeMut = useMutation({
     mutationFn: (id) => db.PurchaseType.delete(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['purchaseTypes'] }); toast.success('Type deleted'); setDeleteType(null); }
+    onSuccess: () => { 
+      // qc.invalidateQueries({ queryKey: ['purchaseTypes'] });
+     toast.success('Type deleted'); setDeleteType(null); }
   });
 
   const totalAmount = purchases.reduce((a, p) => a + (p.total || 0), 0);

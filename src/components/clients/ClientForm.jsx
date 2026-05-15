@@ -25,7 +25,7 @@ export default function ClientForm({ open, onClose, editing }) {
   const mutation = useMutation({
     mutationFn: (data) => editing ? db.Client.update(editing.id, data) : db.Client.create(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['clients'] });
+      // qc.invalidateQueries({ queryKey: ['clients'] });
       toast.success(editing ? 'Client updated' : 'Client created');
       onClose();
     }

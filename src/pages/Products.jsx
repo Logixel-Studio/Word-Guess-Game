@@ -29,7 +29,9 @@ export default function Products() {
 
   const deleteMut = useMutation({
     mutationFn: (id) => db.Product.delete(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast.success('Product deleted'); setDeleteId(null); }
+    onSuccess: () => {
+      //  qc.invalidateQueries({ queryKey: ['products'] });
+     toast.success('Product deleted'); setDeleteId(null); }
   });
 
   const totalValue = products.reduce((a, p) => a + ((p.production_cost || 0) * (p.stock_qty || 0)), 0);

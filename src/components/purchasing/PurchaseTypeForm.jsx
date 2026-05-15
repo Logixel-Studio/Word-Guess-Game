@@ -20,7 +20,9 @@ export default function PurchaseTypeForm({ open, onClose, editing }) {
 
   const mutation = useMutation({
     mutationFn: (data) => editing ? db.PurchaseType.update(editing.id, data) : db.PurchaseType.create(data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['purchaseTypes'] }); toast.success(editing ? 'Updated' : 'Created'); onClose(); }
+    onSuccess: () => { 
+      // qc.invalidateQueries({ queryKey: ['purchaseTypes'] });
+       toast.success(editing ? 'Updated' : 'Created'); onClose(); }
   });
 
   return (

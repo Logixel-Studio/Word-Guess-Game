@@ -25,7 +25,7 @@ export default function SupplierForm({ open, onClose, editing }) {
   const mutation = useMutation({
     mutationFn: (data) => editing ? db.Supplier.update(editing.id, data) : db.Supplier.create(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['suppliers'] });
+      // qc.invalidateQueries({ queryKey: ['suppliers'] });
       toast.success(editing ? 'Supplier updated' : 'Supplier created');
       onClose();
     }

@@ -34,11 +34,15 @@ export default function Expenses() {
 
   const deleteExpense = useMutation({
     mutationFn: (id) => db.Expense.delete(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['expenses'] }); toast.success('Deleted'); setDeleteId(null); }
+    onSuccess: () => { 
+      // qc.invalidateQueries({ queryKey: ['expenses'] });
+       toast.success('Deleted'); setDeleteId(null); }
   });
   const deleteTypeMut = useMutation({
     mutationFn: (id) => db.ExpenseType.delete(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['expenseTypes'] }); toast.success('Type deleted'); setDeleteType(null); }
+    onSuccess: () => {
+      //  qc.invalidateQueries({ queryKey: ['expenseTypes'] });
+        toast.success('Type deleted'); setDeleteType(null); }
   });
 
   const totalAmount = expenses.reduce((a, e) => a + (e.total || 0), 0);

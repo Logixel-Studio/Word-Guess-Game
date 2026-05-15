@@ -230,7 +230,9 @@ function StockAdjustDialog({ product, onClose, qc }) {
       let status = newQty === 0 ? 'out_of_stock' : newQty <= 10 ? 'low_stock' : 'in_stock';
       return db.Product.update(product.id, { stock_qty: newQty, status });
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast.success('Stock updated'); onClose(); setQty(''); }
+    onSuccess: () => {
+      //  qc.invalidateQueries({ queryKey: ['products'] });
+     toast.success('Stock updated'); onClose(); setQty(''); }
   });
 
   if (!product) return null;

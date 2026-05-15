@@ -42,8 +42,8 @@ export default function Sales() {
       return db.Sale.delete(id);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['sales'] });
-      qc.invalidateQueries({ queryKey: ['products'] });
+      // qc.invalidateQueries({ queryKey: ['sales'] });
+      // qc.invalidateQueries({ queryKey: ['products'] });
       toast.success('Sale deleted, stock restored');
       setDeleteId(null);
     }
