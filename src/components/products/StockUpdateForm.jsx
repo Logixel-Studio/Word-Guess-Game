@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '@/api/supabaseClient';
+import { base44 } from '@/api/base44Client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,11 +17,9 @@ export default function StockUpdateForm({ product, onClose }) {
       let status = 'in_stock';
       if (newQty === 0) status = 'out_of_stock';
       else if (newQty <= 5) status = 'low_stock';
-      return db.Product.update(product.id, { stock_qty: newQty, status });
+      return base44.entities.Product.update(product.id, { stock_qty: newQty, status });
     },
-    onSuccess: () => {
-      //  qc.invalidateQueries({ queryKey: ['products'] });
-        toast.success('Stock updated'); onClose(); setQty(''); }
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast.success('Stock updated'); onClose(); setQty(''); }
   });
 
   return (

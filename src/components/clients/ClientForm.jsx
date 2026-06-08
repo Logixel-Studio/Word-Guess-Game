@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '@/api/supabaseClient';
+import { base44 } from '@/api/base44Client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,9 +23,9 @@ export default function ClientForm({ open, onClose, editing }) {
   }, [editing, open, reset]);
 
   const mutation = useMutation({
-    mutationFn: (data) => editing ? db.Client.update(editing.id, data) : db.Client.create(data),
+    mutationFn: (data) => editing ? base44.entities.Client.update(editing.id, data) : base44.entities.Client.create(data),
     onSuccess: () => {
-      // qc.invalidateQueries({ queryKey: ['clients'] });
+      qc.invalidateQueries({ queryKey: ['clients'] });
       toast.success(editing ? 'Client updated' : 'Client created');
       onClose();
     }

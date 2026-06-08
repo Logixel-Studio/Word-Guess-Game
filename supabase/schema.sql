@@ -1,0 +1,737 @@
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- NUTRIMETH BMS — COMPLETE SUPABASE SCHEMA
+-- Run this in: Supabase Dashboard → SQL Editor
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 1. PROFILES (extends auth.users)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS profiles (
+  id            UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email         TEXT,
+  full_name     TEXT,
+  role          TEXT NOT NULL DEFAULT 'employee'
+                  CHECK (role IN ('super_admin','admin','manager','employee',
+                                  'hr_manager','accountant','inventory_manager','sales_manager')),
+  avatar_url    TEXT,
+  created_at    TIMESTAMPTZ DEFAULT now(),
+  updated_at    TIMESTAMPTZ DEFAULT now()
+);
+
+-- Auto-create profile on sign-up
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, full_name, role)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+    COALESCE(NEW.raw_user_meta_data->>'role', 'employee')
+  ) ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 2. COMPANY SETTINGS
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS company_settings (
+  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  company_name     TEXT DEFAULT 'NUTRIMETH',
+  logo_url         TEXT,
+  currency         TEXT DEFAULT 'PKR',
+  currency_symbol  TEXT DEFAULT 'Rs',
+  tax_rate         NUMERIC(5,2) DEFAULT 0,
+  address          TEXT,
+  phone            TEXT,
+  email            TEXT,
+  website          TEXT,
+  created_date     TIMESTAMPTZ DEFAULT now(),
+  updated_date     TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 3. EMPLOYEES
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS employees (
+  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  full_name        TEXT NOT NULL,
+  employee_id      TEXT UNIQUE,
+  email            TEXT,
+  phone            TEXT,
+  role             TEXT DEFAULT 'employee'
+                     CHECK (role IN ('employee','manager','accountant','hr_manager',
+                                     'inventory_manager','sales_manager','admin')),
+  department       TEXT,
+  designation      TEXT,
+  joining_date     DATE,
+  basic_salary     NUMERIC(12,2) DEFAULT 0,
+  status           TEXT DEFAULT 'active'
+                     CHECK (status IN ('active','inactive','on_leave')),
+  address          TEXT,
+  cnic             TEXT,
+  bank_account     TEXT,
+  profile_photo    TEXT,
+  shift_start      TEXT,
+  shift_end        TEXT,
+  grace_minutes    INTEGER DEFAULT 15,
+  overtime_rate    NUMERIC(4,2) DEFAULT 1.5,
+  notes            TEXT,
+  created_date     TIMESTAMPTZ DEFAULT now(),
+  updated_date     TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 4. OFFICE LOCATIONS
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS office_locations (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name            TEXT NOT NULL,
+  address         TEXT,
+  latitude        NUMERIC(10,6),
+  longitude       NUMERIC(10,6),
+  radius_meters   INTEGER DEFAULT 100,
+  shift_start     TEXT,
+  shift_end       TEXT,
+  grace_minutes   INTEGER DEFAULT 15,
+  status          TEXT DEFAULT 'active' CHECK (status IN ('active','inactive')),
+  created_date    TIMESTAMPTZ DEFAULT now(),
+  updated_date    TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 5. EMPLOYEE LOCATIONS
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS employee_locations (
+  id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id           UUID REFERENCES employees(id) ON DELETE CASCADE,
+  employee_name         TEXT,
+  office_location_id    UUID REFERENCES office_locations(id) ON DELETE CASCADE,
+  office_location_name  TEXT,
+  created_date          TIMESTAMPTZ DEFAULT now(),
+  updated_date          TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 6. ATTENDANCE
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS attendance (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id     TEXT NOT NULL,
+  employee_name   TEXT,
+  date            DATE NOT NULL,
+  check_in        TEXT,
+  check_out       TEXT,
+  check_in_lat    NUMERIC(10,6),
+  check_in_lng    NUMERIC(10,6),
+  check_out_lat   NUMERIC(10,6),
+  check_out_lng   NUMERIC(10,6),
+  status          TEXT DEFAULT 'present'
+                    CHECK (status IN ('present','absent','late','half_day','on_leave')),
+  working_hours   NUMERIC(5,2) DEFAULT 0,
+  overtime_hours  NUMERIC(5,2) DEFAULT 0,
+  late_minutes    INTEGER DEFAULT 0,
+  notes           TEXT,
+  created_date    TIMESTAMPTZ DEFAULT now(),
+  updated_date    TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(employee_id, date)
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 7. LEAVE REQUESTS
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS leave_requests (
+  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id      TEXT NOT NULL,
+  employee_name    TEXT,
+  leave_type       TEXT,
+  from_date        DATE,
+  to_date          DATE,
+  days             INTEGER,
+  reason           TEXT,
+  status           TEXT DEFAULT 'pending'
+                     CHECK (status IN ('pending','approved','rejected','cancelled')),
+  reviewed_by      TEXT,
+  review_notes     TEXT,
+  notes            TEXT,
+  created_by_id    TEXT,
+  created_by_name  TEXT,
+  created_by_email TEXT,
+  created_by_role  TEXT,
+  updated_by_id    TEXT,
+  updated_by_name  TEXT,
+  updated_by_email TEXT,
+  updated_by_role  TEXT,
+  created_date     TIMESTAMPTZ DEFAULT now(),
+  updated_date     TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 8. CLIENTS
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS clients (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name         TEXT NOT NULL,
+  phone        TEXT,
+  address      TEXT,
+  description  TEXT,
+  status       TEXT DEFAULT 'active' CHECK (status IN ('active','inactive')),
+  created_date TIMESTAMPTZ DEFAULT now(),
+  updated_date TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 9. SUPPLIERS
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS suppliers (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name         TEXT NOT NULL,
+  phone        TEXT,
+  address      TEXT,
+  description  TEXT,
+  status       TEXT DEFAULT 'active' CHECK (status IN ('active','inactive')),
+  created_date TIMESTAMPTZ DEFAULT now(),
+  updated_date TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 10. PRODUCTS
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS products (
+  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name             TEXT NOT NULL,
+  description      TEXT,
+  materials        JSONB DEFAULT '[]',
+  production_cost  NUMERIC(12,2) DEFAULT 0,
+  stock_qty        NUMERIC(12,2) DEFAULT 0,
+  status           TEXT DEFAULT 'active'
+                     CHECK (status IN ('active','inactive','out_of_stock','low_stock')),
+  created_date     TIMESTAMPTZ DEFAULT now(),
+  updated_date     TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 11. PURCHASE TYPES
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS purchase_types (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name         TEXT NOT NULL,
+  description  TEXT,
+  created_date TIMESTAMPTZ DEFAULT now(),
+  updated_date TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 12. PURCHASES
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS purchases (
+  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  supplier_id         TEXT,
+  supplier_name       TEXT,
+  purchase_type_id    TEXT,
+  purchase_type_name  TEXT,
+  qty                 NUMERIC(12,2) DEFAULT 0,
+  unit_price          NUMERIC(12,2) DEFAULT 0,
+  total               NUMERIC(14,2) DEFAULT 0,
+  description         TEXT,
+  payment_status      TEXT DEFAULT 'unpaid'
+                        CHECK (payment_status IN ('paid','unpaid','partial')),
+  paid_amount         NUMERIC(14,2) DEFAULT 0,
+  due_date            DATE,
+  created_by_id       TEXT,
+  created_by_name     TEXT,
+  created_by_email    TEXT,
+  created_by_role     TEXT,
+  updated_by_id       TEXT,
+  updated_by_name     TEXT,
+  updated_by_email    TEXT,
+  updated_by_role     TEXT,
+  created_date        TIMESTAMPTZ DEFAULT now(),
+  updated_date        TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 13. SALES
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS sales (
+  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id        TEXT,
+  client_name      TEXT,
+  product_id       TEXT,
+  product_name     TEXT,
+  qty              NUMERIC(12,2) DEFAULT 0,
+  unit_price       NUMERIC(12,2) DEFAULT 0,
+  total            NUMERIC(14,2) DEFAULT 0,
+  cost_per_unit    NUMERIC(12,2) DEFAULT 0,
+  profit           NUMERIC(14,2) DEFAULT 0,
+  description      TEXT,
+  payment_status   TEXT DEFAULT 'unpaid'
+                     CHECK (payment_status IN ('paid','unpaid','partial')),
+  paid_amount      NUMERIC(14,2) DEFAULT 0,
+  due_date         DATE,
+  created_by_id    TEXT,
+  created_by_name  TEXT,
+  created_by_email TEXT,
+  created_by_role  TEXT,
+  updated_by_id    TEXT,
+  updated_by_name  TEXT,
+  updated_by_email TEXT,
+  updated_by_role  TEXT,
+  created_date     TIMESTAMPTZ DEFAULT now(),
+  updated_date     TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 14. EXPENSE TYPES
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS expense_types (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name         TEXT NOT NULL,
+  description  TEXT,
+  created_date TIMESTAMPTZ DEFAULT now(),
+  updated_date TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 15. EXPENSES
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS expenses (
+  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  expense_type_id     TEXT,
+  expense_type_name   TEXT,
+  qty                 NUMERIC(12,2) DEFAULT 1,
+  unit_price          NUMERIC(12,2) DEFAULT 0,
+  total               NUMERIC(14,2) DEFAULT 0,
+  description         TEXT,
+  payment_status      TEXT DEFAULT 'unpaid'
+                        CHECK (payment_status IN ('paid','unpaid','partial')),
+  paid_amount         NUMERIC(14,2) DEFAULT 0,
+  due_date            DATE,
+  created_by_id       TEXT,
+  created_by_name     TEXT,
+  created_by_email    TEXT,
+  created_by_role     TEXT,
+  updated_by_id       TEXT,
+  updated_by_name     TEXT,
+  updated_by_email    TEXT,
+  updated_by_role     TEXT,
+  created_date        TIMESTAMPTZ DEFAULT now(),
+  updated_date        TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 16. PAYROLL
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS payroll (
+  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id         TEXT NOT NULL,
+  employee_name       TEXT,
+  employee_email      TEXT,
+  employee_department TEXT,
+  employee_role       TEXT,
+  month               TEXT NOT NULL,
+  basic_salary        NUMERIC(12,2) DEFAULT 0,
+  overtime_hours      NUMERIC(6,2) DEFAULT 0,
+  overtime_amount     NUMERIC(12,2) DEFAULT 0,
+  overtime_pay        NUMERIC(12,2) DEFAULT 0,
+  bonus               NUMERIC(12,2) DEFAULT 0,
+  bonus_amount        NUMERIC(12,2) DEFAULT 0,
+  deductions          NUMERIC(12,2) DEFAULT 0,
+  late_deduction      NUMERIC(12,2) DEFAULT 0,
+  leave_deduction     NUMERIC(12,2) DEFAULT 0,
+  gross_salary        NUMERIC(12,2) DEFAULT 0,
+  net_salary          NUMERIC(12,2) DEFAULT 0,
+  total_days          INTEGER DEFAULT 0,
+  present_days        INTEGER DEFAULT 0,
+  absent_days         INTEGER DEFAULT 0,
+  late_days           INTEGER DEFAULT 0,
+  late_minutes        INTEGER DEFAULT 0,
+  payment_status      TEXT DEFAULT 'pending'
+                        CHECK (payment_status IN ('pending','paid','cancelled')),
+  paid_date           DATE,
+  notes               TEXT,
+  created_by_id       TEXT,
+  created_by_name     TEXT,
+  created_by_email    TEXT,
+  created_date        TIMESTAMPTZ DEFAULT now(),
+  updated_date        TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 17. TASKS
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS tasks (
+  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title               TEXT NOT NULL,
+  description         TEXT,
+  assigned_to_id      TEXT,
+  assigned_to_name    TEXT,
+  assigned_to_email   TEXT,
+  assigned_by_id      TEXT,
+  assigned_by_name    TEXT,
+  assigned_by_email   TEXT,
+  assigned_by_role    TEXT,
+  priority            TEXT DEFAULT 'medium'
+                        CHECK (priority IN ('low','medium','high','urgent')),
+  status              TEXT DEFAULT 'pending'
+                        CHECK (status IN ('pending','in_progress','completed','cancelled')),
+  due_date            DATE,
+  completed_date      DATE,
+  department          TEXT,
+  notes               TEXT,
+  created_by_id       TEXT,
+  created_by_name     TEXT,
+  created_by_email    TEXT,
+  created_by_role     TEXT,
+  updated_by_id       TEXT,
+  updated_by_name     TEXT,
+  updated_by_email    TEXT,
+  updated_by_role     TEXT,
+  created_date        TIMESTAMPTZ DEFAULT now(),
+  updated_date        TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 18. INVOICES
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS invoices (
+  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  invoice_number      TEXT UNIQUE,
+  invoice_type        TEXT CHECK (invoice_type IN ('sale','purchase','expense','other')),
+  party_id            TEXT,
+  party_name          TEXT,
+  party_phone         TEXT,
+  party_address       TEXT,
+  party_email         TEXT,
+  invoice_date        DATE,
+  due_date            DATE,
+  linked_record_ids   JSONB DEFAULT '[]',
+  items               JSONB DEFAULT '[]',
+  subtotal            NUMERIC(14,2) DEFAULT 0,
+  tax_percent         NUMERIC(5,2) DEFAULT 0,
+  tax_amount          NUMERIC(14,2) DEFAULT 0,
+  discount_percent    NUMERIC(5,2) DEFAULT 0,
+  discount_amount     NUMERIC(14,2) DEFAULT 0,
+  grand_total         NUMERIC(14,2) DEFAULT 0,
+  paid_amount         NUMERIC(14,2) DEFAULT 0,
+  remaining_amount    NUMERIC(14,2) DEFAULT 0,
+  payment_status      TEXT DEFAULT 'unpaid'
+                        CHECK (payment_status IN ('paid','unpaid','partial')),
+  account_number      TEXT,
+  iban                TEXT,
+  notes               TEXT,
+  terms               TEXT,
+  company_phone       TEXT,
+  company_email       TEXT,
+  company_website     TEXT,
+  company_address     TEXT,
+  download_count      INTEGER DEFAULT 0,
+  print_count         INTEGER DEFAULT 0,
+  created_by_id       TEXT,
+  created_by_name     TEXT,
+  created_by_email    TEXT,
+  created_by_role     TEXT,
+  updated_by_id       TEXT,
+  updated_by_name     TEXT,
+  updated_by_email    TEXT,
+  updated_by_role     TEXT,
+  created_date        TIMESTAMPTZ DEFAULT now(),
+  updated_date        TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 19. ACTIONS (Action Center)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS actions (
+  id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title                 TEXT NOT NULL,
+  description           TEXT,
+  priority              TEXT DEFAULT 'medium'
+                          CHECK (priority IN ('low','medium','high','urgent')),
+  status                TEXT DEFAULT 'open'
+                          CHECK (status IN ('open','in_progress','completed','cancelled')),
+  due_date              DATE,
+  reminder_date         DATE,
+  notes                 TEXT,
+  linked_client_id      TEXT,
+  linked_client_name    TEXT,
+  linked_supplier_id    TEXT,
+  linked_supplier_name  TEXT,
+  linked_invoice_id     TEXT,
+  linked_invoice_number TEXT,
+  linked_employee_id    TEXT,
+  linked_employee_name  TEXT,
+  completed_at          TIMESTAMPTZ,
+  completed_by_name     TEXT,
+  created_by_id         TEXT,
+  created_by_name       TEXT,
+  created_by_email      TEXT,
+  created_by_role       TEXT,
+  updated_by_id         TEXT,
+  updated_by_name       TEXT,
+  updated_by_email      TEXT,
+  updated_by_role       TEXT,
+  created_date          TIMESTAMPTZ DEFAULT now(),
+  updated_date          TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 20. ROLE PERMISSIONS
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS role_permissions (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  role         TEXT NOT NULL,
+  module       TEXT NOT NULL,
+  can_create   BOOLEAN DEFAULT false,
+  can_read     BOOLEAN DEFAULT false,
+  can_update   BOOLEAN DEFAULT false,
+  can_delete   BOOLEAN DEFAULT false,
+  can_approve  BOOLEAN DEFAULT false,
+  can_export   BOOLEAN DEFAULT false,
+  can_print    BOOLEAN DEFAULT false,
+  can_assign   BOOLEAN DEFAULT false,
+  can_manage   BOOLEAN DEFAULT false,
+  full_access  BOOLEAN DEFAULT false,
+  created_date TIMESTAMPTZ DEFAULT now(),
+  updated_date TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(role, module)
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 21. PERMISSION CHANGE LOGS
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS permission_change_logs (
+  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  changed_by_id    TEXT,
+  changed_by_name  TEXT,
+  changed_by_email TEXT,
+  role             TEXT,
+  module           TEXT,
+  permission_key   TEXT,
+  old_value        BOOLEAN,
+  new_value        BOOLEAN,
+  action           TEXT,
+  notes            TEXT,
+  created_date     TIMESTAMPTZ DEFAULT now(),
+  updated_date     TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 22. CUSTOM ROLES
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS custom_roles (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  key          TEXT UNIQUE,
+  label        TEXT NOT NULL,
+  description  TEXT,
+  color        TEXT,
+  is_system    BOOLEAN DEFAULT false,
+  is_archived  BOOLEAN DEFAULT false,
+  based_on     TEXT,
+  created_date TIMESTAMPTZ DEFAULT now(),
+  updated_date TIMESTAMPTZ DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- INDEXES
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_attendance_employee_date ON attendance(employee_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_attendance_date          ON attendance(date DESC);
+CREATE INDEX IF NOT EXISTS idx_sales_created            ON sales(created_date DESC);
+CREATE INDEX IF NOT EXISTS idx_sales_client             ON sales(client_id);
+CREATE INDEX IF NOT EXISTS idx_sales_payment_status     ON sales(payment_status);
+CREATE INDEX IF NOT EXISTS idx_purchases_created        ON purchases(created_date DESC);
+CREATE INDEX IF NOT EXISTS idx_expenses_created         ON expenses(created_date DESC);
+CREATE INDEX IF NOT EXISTS idx_payroll_employee_month   ON payroll(employee_id, month);
+CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to        ON tasks(assigned_to_id);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_employee  ON leave_requests(employee_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_number          ON invoices(invoice_number);
+CREATE INDEX IF NOT EXISTS idx_actions_status           ON actions(status);
+CREATE INDEX IF NOT EXISTS idx_role_permissions_role    ON role_permissions(role);
+CREATE INDEX IF NOT EXISTS idx_employees_email          ON employees(email);
+CREATE INDEX IF NOT EXISTS idx_employee_locations_emp   ON employee_locations(employee_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ROW LEVEL SECURITY (RLS)
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- Enable RLS on all tables
+ALTER TABLE profiles               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE company_settings       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE employees              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE office_locations       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE employee_locations     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE leave_requests         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clients                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE suppliers              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE products               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchase_types         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchases              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sales                  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE expense_types          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE expenses               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payroll                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tasks                  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invoices               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE actions                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE role_permissions       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE permission_change_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE custom_roles           ENABLE ROW LEVEL SECURITY;
+
+-- Helper: get current user role from profiles
+CREATE OR REPLACE FUNCTION get_user_role()
+RETURNS TEXT LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT role FROM public.profiles WHERE id = auth.uid()
+$$;
+
+-- Helper: is current user admin or above
+CREATE OR REPLACE FUNCTION is_admin_or_above()
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT get_user_role() IN ('super_admin', 'admin')
+$$;
+
+CREATE OR REPLACE FUNCTION is_hr_or_above()
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT get_user_role() IN ('super_admin', 'admin', 'hr_manager')
+$$;
+
+-- ── Profiles: users can read all, only update own ──────────────────────────
+CREATE POLICY "profiles_read_all"   ON profiles FOR SELECT USING (true);
+CREATE POLICY "profiles_update_own" ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "profiles_insert_own" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- ── Company Settings: all authenticated read; admin write ─────────────────
+CREATE POLICY "settings_read"   ON company_settings FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "settings_write"  ON company_settings FOR ALL USING (is_admin_or_above());
+
+-- ── Employees: all authenticated read; HR+ write ─────────────────────────
+CREATE POLICY "employees_read"  ON employees FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "employees_write" ON employees FOR ALL   USING (is_hr_or_above());
+
+-- ── Office Locations: all authenticated ──────────────────────────────────
+CREATE POLICY "office_locations_read"  ON office_locations FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "office_locations_write" ON office_locations FOR ALL   USING (is_admin_or_above());
+
+-- ── Employee Locations: all authenticated ────────────────────────────────
+CREATE POLICY "employee_locations_read"  ON employee_locations FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "employee_locations_write" ON employee_locations FOR ALL   USING (is_hr_or_above());
+
+-- ── Attendance: all authenticated read; own or HR write ──────────────────
+CREATE POLICY "attendance_read"  ON attendance FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "attendance_write" ON attendance FOR ALL   USING (
+  is_hr_or_above()
+  OR EXISTS (
+    SELECT 1 FROM employees e
+    WHERE e.id::text = attendance.employee_id
+    AND e.email = (SELECT email FROM profiles WHERE id = auth.uid())
+  )
+);
+
+-- ── Leave Requests: all authenticated read; own or HR write ───────────────
+CREATE POLICY "leave_requests_read"  ON leave_requests FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "leave_requests_write" ON leave_requests FOR ALL   USING (
+  is_hr_or_above()
+  OR EXISTS (
+    SELECT 1 FROM employees e
+    WHERE e.id::text = leave_requests.employee_id
+    AND e.email = (SELECT email FROM profiles WHERE id = auth.uid())
+  )
+);
+
+-- ── Clients / Suppliers: all authenticated ────────────────────────────────
+CREATE POLICY "clients_read"    ON clients    FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "clients_write"   ON clients    FOR ALL   USING (auth.role() = 'authenticated');
+CREATE POLICY "suppliers_read"  ON suppliers  FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "suppliers_write" ON suppliers  FOR ALL   USING (auth.role() = 'authenticated');
+
+-- ── Products: all authenticated ───────────────────────────────────────────
+CREATE POLICY "products_read"  ON products FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "products_write" ON products FOR ALL   USING (auth.role() = 'authenticated');
+
+-- ── Purchase Types / Purchases ────────────────────────────────────────────
+CREATE POLICY "purchase_types_all" ON purchase_types FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "purchases_all"      ON purchases      FOR ALL USING (auth.role() = 'authenticated');
+
+-- ── Sales ─────────────────────────────────────────────────────────────────
+CREATE POLICY "sales_all" ON sales FOR ALL USING (auth.role() = 'authenticated');
+
+-- ── Expense Types / Expenses ──────────────────────────────────────────────
+CREATE POLICY "expense_types_all" ON expense_types FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "expenses_all"      ON expenses      FOR ALL USING (auth.role() = 'authenticated');
+
+-- ── Payroll: own or HR+ ───────────────────────────────────────────────────
+CREATE POLICY "payroll_read"  ON payroll FOR SELECT USING (
+  is_hr_or_above()
+  OR get_user_role() IN ('accountant', 'admin')
+  OR EXISTS (
+    SELECT 1 FROM employees e
+    WHERE e.id::text = payroll.employee_id
+    AND e.email = (SELECT email FROM profiles WHERE id = auth.uid())
+  )
+);
+CREATE POLICY "payroll_write" ON payroll FOR ALL USING (is_hr_or_above() OR get_user_role() = 'accountant');
+
+-- ── Tasks: all authenticated ──────────────────────────────────────────────
+CREATE POLICY "tasks_read"  ON tasks FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "tasks_write" ON tasks FOR ALL   USING (auth.role() = 'authenticated');
+
+-- ── Invoices ──────────────────────────────────────────────────────────────
+CREATE POLICY "invoices_all" ON invoices FOR ALL USING (auth.role() = 'authenticated');
+
+-- ── Actions ───────────────────────────────────────────────────────────────
+CREATE POLICY "actions_all" ON actions FOR ALL USING (auth.role() = 'authenticated');
+
+-- ── Role Permissions: all read; admin write ───────────────────────────────
+CREATE POLICY "role_permissions_read"  ON role_permissions FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "role_permissions_write" ON role_permissions FOR ALL   USING (is_admin_or_above());
+
+-- ── Permission Change Logs: read by admin; insert by admin ────────────────
+CREATE POLICY "perm_logs_read"  ON permission_change_logs FOR SELECT USING (is_admin_or_above());
+CREATE POLICY "perm_logs_write" ON permission_change_logs FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- ── Custom Roles ──────────────────────────────────────────────────────────
+CREATE POLICY "custom_roles_read"  ON custom_roles FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "custom_roles_write" ON custom_roles FOR ALL   USING (is_admin_or_above());
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- STORAGE BUCKET
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Run in Supabase Dashboard → Storage → New Bucket → "nutrimeth-files" (public)
+-- OR via SQL:
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('nutrimeth-files', 'nutrimeth-files', true)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "storage_read"   ON storage.objects FOR SELECT USING (bucket_id = 'nutrimeth-files');
+CREATE POLICY "storage_upload" ON storage.objects FOR INSERT WITH CHECK (
+  bucket_id = 'nutrimeth-files' AND auth.role() = 'authenticated'
+);
+CREATE POLICY "storage_update" ON storage.objects FOR UPDATE USING (
+  bucket_id = 'nutrimeth-files' AND auth.role() = 'authenticated'
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- REALTIME PUBLICATIONS
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER PUBLICATION supabase_realtime ADD TABLE actions;
+ALTER PUBLICATION supabase_realtime ADD TABLE tasks;
+ALTER PUBLICATION supabase_realtime ADD TABLE attendance;
+ALTER PUBLICATION supabase_realtime ADD TABLE leave_requests;
+ALTER PUBLICATION supabase_realtime ADD TABLE payroll;
+ALTER PUBLICATION supabase_realtime ADD TABLE invoices;
+ALTER PUBLICATION supabase_realtime ADD TABLE sales;
+ALTER PUBLICATION supabase_realtime ADD TABLE products;
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- SCHEMA COMPLETE
+-- ═══════════════════════════════════════════════════════════════════════════════

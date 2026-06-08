@@ -1,0 +1,106 @@
+{
+  "name": "Action",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ],
+      "default": "medium"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed",
+        "cancelled"
+      ],
+      "default": "pending"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "reminder_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "linked_client_id": {
+      "type": "string"
+    },
+    "linked_client_name": {
+      "type": "string"
+    },
+    "linked_supplier_id": {
+      "type": "string"
+    },
+    "linked_supplier_name": {
+      "type": "string"
+    },
+    "linked_invoice_id": {
+      "type": "string"
+    },
+    "linked_invoice_number": {
+      "type": "string"
+    },
+    "linked_employee_id": {
+      "type": "string"
+    },
+    "linked_employee_name": {
+      "type": "string"
+    },
+    "completed_at": {
+      "type": "string"
+    },
+    "completed_by_name": {
+      "type": "string"
+    },
+    "created_by_id": {
+      "type": "string"
+    },
+    "created_by_name": {
+      "type": "string"
+    },
+    "created_by_email": {
+      "type": "string"
+    },
+    "created_by_role": {
+      "type": "string"
+    },
+    "updated_by_id": {
+      "type": "string"
+    },
+    "updated_by_name": {
+      "type": "string"
+    },
+    "updated_by_email": {
+      "type": "string"
+    },
+    "updated_by_role": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {}
+  }
+}

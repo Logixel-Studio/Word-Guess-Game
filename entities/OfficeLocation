@@ -1,0 +1,51 @@
+{
+  "name": "OfficeLocation",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "address": {
+      "type": "string"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "radius_meters": {
+      "type": "number",
+      "default": 200
+    },
+    "shift_start": {
+      "type": "string"
+    },
+    "shift_end": {
+      "type": "string"
+    },
+    "grace_minutes": {
+      "type": "number",
+      "default": 15
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "name",
+    "latitude",
+    "longitude"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {}
+  }
+}

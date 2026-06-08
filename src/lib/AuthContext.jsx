@@ -1,123 +1,61 @@
-import React, { createContext, useState, useContext, useEffect, useCallback, useRef, useMemo } from 'react';
-import { supabase, setCreatorContext } from '@/api/supabaseClient';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
+import { auth as supabaseAuth } from '@/api/supabaseAdapter';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
+  const [user, setUser]                       = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [authChecked, setAuthChecked] = useState(false);
+  const [isLoadingAuth, setIsLoadingAuth]     = useState(true);
+  const [isLoadingPublicSettings]             = useState(false); // No public settings needed
+  const [authError, setAuthError]             = useState(null);
+  const [authChecked, setAuthChecked]         = useState(false);
+  const [appPublicSettings]                   = useState({ id: 'nutrimeth', public_settings: {} });
 
-  // Static values — never change
-  const [isLoadingPublicSettings] = useState(false);
-  const [authError] = useState(null);
-  const [appPublicSettings] = useState({ id: 'nutrimeth', public_settings: {} });
-
-  // Track current user ID via ref to avoid stale closures
-  const userIdRef = useRef(null);
-  // Guard against concurrent profile fetches
-  const fetchingRef = useRef(false);
-
-  const fetchProfile = useCallback(async (userId) => {
-    if (!userId) return null;
-    try {
-      const { data } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      if (data) {
-        setProfile(data);
-        setCreatorContext({ id: data.id, name: data.full_name, email: data.email });
-      }
-      return data;
-    } catch {
-      return null;
-    }
-  }, []); // stable — no deps that change
-
-  // ensureProfile: upserts profile row if missing, then loads it
-  const ensureProfile = useCallback(async (authUser) => {
-    if (!authUser) return null;
-    const fullName =
-      authUser.user_metadata?.full_name ||
-      authUser.email?.split('@')[0] ||
-      'User';
-    try {
-      const { data: existing } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('id', authUser.id)
-        .maybeSingle();
-      if (!existing) {
-        await supabase.from('user_profiles').insert([{
-          id: authUser.id,
-          email: authUser.email,
-          full_name: fullName,
-          avatar_url: authUser.user_metadata?.avatar_url || null,
-        }]);
-      }
-    } catch {
-      // profile may already exist via DB trigger — ignore
-    }
-    return fetchProfile(authUser.id);
-  }, [fetchProfile]);
-
+  // Load current session on mount
   useEffect(() => {
     let mounted = true;
 
-    const handleUser = async (authUser) => {
-      if (!mounted || fetchingRef.current) return;
-      fetchingRef.current = true;
+    const loadSession = async () => {
       try {
-        setUser(authUser);
-        setIsAuthenticated(true);
-        userIdRef.current = authUser.id;
-        await ensureProfile(authUser);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted) return;
+
+        if (session?.user) {
+          await resolveProfile(session.user);
+        } else {
+          setIsAuthenticated(false);
+          setUser(null);
+        }
+      } catch (err) {
+        console.error('Session load error:', err);
+        if (mounted) {
+          setAuthError({ type: 'unknown', message: err.message });
+        }
       } finally {
-        fetchingRef.current = false;
+        if (mounted) {
+          setIsLoadingAuth(false);
+          setAuthChecked(true);
+        }
       }
     };
 
-    const handleSignOut = () => {
-      if (!mounted) return;
-      setUser(null);
-      setProfile(null);
-      setIsAuthenticated(false);
-      userIdRef.current = null;
-      setCreatorContext({ id: null, name: null, email: null });
-    };
+    loadSession();
 
-    // Initial session check — runs ONCE
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!mounted) return;
-      if (session?.user) {
-        await handleUser(session.user);
-      } else {
-        handleSignOut();
-      }
-      setIsLoadingAuth(false);
-      setAuthChecked(true);
-    }).catch(() => {
-      if (!mounted) return;
-      setIsLoadingAuth(false);
-      setAuthChecked(true);
-    });
-
-    // Auth state listener — ignores TOKEN_REFRESHED to stop re-render loops
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
-      if (event === 'TOKEN_REFRESHED') return;
+      supabaseAuth.clearCache();
+
       if (event === 'SIGNED_IN' && session?.user) {
-        if (session.user.id !== userIdRef.current) {
-          await handleUser(session.user);
-        }
+        await resolveProfile(session.user);
       } else if (event === 'SIGNED_OUT') {
-        handleSignOut();
-      } else if (event === 'USER_UPDATED' && session?.user) {
-        setUser(session.user);
+        setUser(null);
+        setIsAuthenticated(false);
+        setAuthError(null);
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        await resolveProfile(session.user);
       }
     });
 
@@ -125,55 +63,105 @@ export const AuthProvider = ({ children }) => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []); // empty deps — run once on mount only
-
-  const logout = useCallback(async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
-    setIsAuthenticated(false);
-    userIdRef.current = null;
-    setCreatorContext({ id: null, name: null, email: null });
   }, []);
 
-  const checkUserAuth = useCallback(async () => {
+  const resolveProfile = async (authUser) => {
     try {
-      setIsLoadingAuth(true);
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (currentUser) {
-        setUser(currentUser);
-        setIsAuthenticated(true);
-        await ensureProfile(currentUser);
+      // Fetch or create profile
+      let { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+
+      if (!profile) {
+        // Auto-create profile on first login
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .insert({
+            id: authUser.id,
+            email: authUser.email,
+            full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || '',
+            role: authUser.user_metadata?.role || 'employee',
+            avatar_url: authUser.user_metadata?.avatar_url || '',
+          })
+          .select()
+          .single();
+        profile = newProfile;
       }
-    } catch {}
-    setIsLoadingAuth(false);
-    setAuthChecked(true);
-  }, [ensureProfile]);
 
-  const checkAppState = useCallback(async () => { await checkUserAuth(); }, [checkUserAuth]);
-  const navigateToLogin = useCallback(() => {}, []);
+      const merged = {
+        id: authUser.id,
+        email: authUser.email,
+        full_name: profile?.full_name || '',
+        role: profile?.role || 'employee',
+        avatar_url: profile?.avatar_url || '',
+        ...profile,
+      };
 
-  const displayName = profile?.full_name
-    || user?.user_metadata?.full_name
-    || user?.email?.split('@')[0]
-    || 'User';
+      setUser(merged);
+      setIsAuthenticated(true);
+      setAuthError(null);
+    } catch (err) {
+      console.error('Profile resolve error:', err);
+      setUser({ id: authUser.id, email: authUser.email, role: 'employee' });
+      setIsAuthenticated(true);
+    }
+  };
 
-  // Memoize so consumers only re-render when relevant state actually changes
-  const value = useMemo(() => ({
-    user, profile, displayName, isAuthenticated, isLoadingAuth,
-    isLoadingPublicSettings, authError, appPublicSettings, authChecked,
-    logout, navigateToLogin, checkUserAuth, checkAppState, fetchProfile, ensureProfile,
-  }), [
-    user, profile, displayName, isAuthenticated, isLoadingAuth, authChecked,
-    logout, checkUserAuth, checkAppState, fetchProfile, ensureProfile,
-    isLoadingPublicSettings, authError, appPublicSettings, navigateToLogin,
-  ]);
+  const checkUserAuth = useCallback(async () => {
+    setIsLoadingAuth(true);
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        await resolveProfile(authUser);
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    } catch (err) {
+      setIsAuthenticated(false);
+      setAuthError({ type: 'auth_required', message: 'Authentication required' });
+    } finally {
+      setIsLoadingAuth(false);
+      setAuthChecked(true);
+    }
+  }, []);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  const logout = useCallback(async (shouldRedirect = true) => {
+    supabaseAuth.clearCache();
+    await supabase.auth.signOut();
+    setUser(null);
+    setIsAuthenticated(false);
+    if (shouldRedirect) window.location.href = '/login';
+  }, []);
+
+  const navigateToLogin = useCallback(() => {
+    supabaseAuth.clearCache();
+    window.location.href = '/login';
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated,
+      isLoadingAuth,
+      isLoadingPublicSettings,
+      authError,
+      appPublicSettings,
+      authChecked,
+      logout,
+      navigateToLogin,
+      checkUserAuth,
+      checkAppState: checkUserAuth,
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
 };

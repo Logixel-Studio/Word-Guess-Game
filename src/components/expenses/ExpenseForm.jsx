@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-// import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '@/api/supabaseClient';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import { useCurrentUser } from '@/lib/useCurrentUser';
+import { makeCreatedBy, makeUpdatedBy } from '@/lib/auditUtils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 
 export default function ExpenseForm({ open, onClose, editing, expenseTypes }) {
-  // const qc = useQueryClient();
+  const qc = useQueryClient();
+  const currentUser = useCurrentUser();
   const { register, handleSubmit, reset, setValue, watch } = useForm();
   const qty = watch('qty') || 0;
   const unitPrice = watch('unit_price') || 0;
@@ -34,8 +37,12 @@ export default function ExpenseForm({ open, onClose, editing, expenseTypes }) {
     mutationFn: (data) => {
       const eType = expenseTypes.find(t => t.id === data.expense_type_id);
       const paidAmt = data.payment_status === 'paid' ? Number(data.qty) * Number(data.unit_price) : Number(data.paid_amount) || 0;
+      const auditFields = editing
+        ? makeUpdatedBy(currentUser)
+        : { ...makeCreatedBy(currentUser), ...makeUpdatedBy(currentUser) };
       const payload = {
         ...data,
+        ...auditFields,
         expense_type_name: eType?.name || '',
         qty: Number(data.qty),
         unit_price: Number(data.unit_price),
@@ -43,13 +50,9 @@ export default function ExpenseForm({ open, onClose, editing, expenseTypes }) {
         paid_amount: paidAmt,
         due_date: data.due_date || null,
       };
-      return editing ? db.Expense.update(editing.id, payload) : db.Expense.create(payload);
+      return editing ? base44.entities.Expense.update(editing.id, payload) : base44.entities.Expense.create(payload);
     },
-    onSuccess: () => {
-      // qc.invalidateQueries({ queryKey: ['expenses'] }); 
-      toast.success(editing ? 'Updated' : 'Created'); 
-      onClose();
-    }
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['expenses'] }); toast.success(editing ? 'Updated' : 'Created'); onClose(); }
   });
 
   return (

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '@/api/supabaseClient';
+import { base44 } from '@/api/base44Client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,10 +19,8 @@ export default function PurchaseTypeForm({ open, onClose, editing }) {
   }, [editing, open, reset]);
 
   const mutation = useMutation({
-    mutationFn: (data) => editing ? db.PurchaseType.update(editing.id, data) : db.PurchaseType.create(data),
-    onSuccess: () => { 
-      // qc.invalidateQueries({ queryKey: ['purchaseTypes'] });
-       toast.success(editing ? 'Updated' : 'Created'); onClose(); }
+    mutationFn: (data) => editing ? base44.entities.PurchaseType.update(editing.id, data) : base44.entities.PurchaseType.create(data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['purchaseTypes'] }); toast.success(editing ? 'Updated' : 'Created'); onClose(); }
   });
 
   return (

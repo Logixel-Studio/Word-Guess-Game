@@ -1,5 +1,16 @@
+import { useCurrentUser } from '@/lib/useCurrentUser';
+import { ROLES } from '@/lib/roleConfig';
+import SuperAdminDashboard from './dashboards/SuperAdminDashboard';
+import ManagerDashboard from './dashboards/ManagerDashboard';
+import HRDashboard from './dashboards/HRDashboard';
+import AccountantDashboard from './dashboards/AccountantDashboard';
+import InventoryDashboard from './dashboards/InventoryDashboard';
+import SalesDashboard from './dashboards/SalesDashboard';
+import EmployeeDashboard from './employee/EmployeeDashboard';
+
+// Original full dashboard for admin roles
 import { useQuery } from '@tanstack/react-query';
-import { db } from '@/api/supabaseClient';
+import { base44 } from '@/api/base44Client';
 import { formatNumber } from '@/lib/formatters';
 import { useCurrency } from '@/lib/CurrencyContext';
 import SummaryCard from '@/components/shared/SummaryCard';
@@ -10,14 +21,14 @@ import {
   DollarSign, Clock, CreditCard, Package, CheckCircle, XCircle, AlertCircle
 } from 'lucide-react';
 
-export default function Dashboard() {
+function AdminDashboard() {
   const { formatCurrency } = useCurrency();
-  const { data: clients = [] } = useQuery({ queryKey: ['clients'], queryFn: () => db.Client.list() });
-  const { data: suppliers = [] } = useQuery({ queryKey: ['suppliers'], queryFn: () => db.Supplier.list() });
-  const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: () => db.Sale.list() });
-  const { data: purchases = [] } = useQuery({ queryKey: ['purchases'], queryFn: () => db.Purchase.list() });
-  const { data: expenses = [] } = useQuery({ queryKey: ['expenses'], queryFn: () => db.Expense.list() });
-  const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: () => db.Product.list() });
+  const { data: clients = [] } = useQuery({ queryKey: ['clients'], queryFn: () => base44.entities.Client.list() });
+  const { data: suppliers = [] } = useQuery({ queryKey: ['suppliers'], queryFn: () => base44.entities.Supplier.list() });
+  const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: () => base44.entities.Sale.list() });
+  const { data: purchases = [] } = useQuery({ queryKey: ['purchases'], queryFn: () => base44.entities.Purchase.list() });
+  const { data: expenses = [] } = useQuery({ queryKey: ['expenses'], queryFn: () => base44.entities.Expense.list() });
+  const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: () => base44.entities.Product.list() });
 
   const totalSales = sales.reduce((s, r) => s + (r.total || 0), 0);
   const totalPurchases = purchases.reduce((s, r) => s + (r.total || 0), 0);
@@ -54,4 +65,30 @@ export default function Dashboard() {
       <DashboardCharts sales={sales} purchases={purchases} expenses={expenses} products={products} />
     </div>
   );
+}
+
+export default function Dashboard() {
+  const user = useCurrentUser();
+  const role = user?.role;
+
+  // Show loading state while user is being fetched
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  switch (role) {
+    case ROLES.SUPER_ADMIN: return <SuperAdminDashboard />;
+    case ROLES.ADMIN: return <AdminDashboard />;
+    case ROLES.MANAGER: return <ManagerDashboard />;
+    case ROLES.HR_MANAGER: return <HRDashboard />;
+    case ROLES.ACCOUNTANT: return <AccountantDashboard />;
+    case ROLES.INVENTORY_MANAGER: return <InventoryDashboard />;
+    case ROLES.SALES_MANAGER: return <SalesDashboard />;
+    case ROLES.EMPLOYEE: return <EmployeeDashboard />;
+    default: return <AdminDashboard />;
+  }
 }

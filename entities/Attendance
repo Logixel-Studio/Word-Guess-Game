@@ -1,0 +1,161 @@
+{
+  "name": "Attendance",
+  "type": "object",
+  "properties": {
+    "employee_id": {
+      "type": "string"
+    },
+    "employee_name": {
+      "type": "string"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "check_in": {
+      "type": "string",
+      "description": "HH:MM"
+    },
+    "check_out": {
+      "type": "string",
+      "description": "HH:MM"
+    },
+    "check_in_lat": {
+      "type": "number"
+    },
+    "check_in_lng": {
+      "type": "number"
+    },
+    "check_out_lat": {
+      "type": "number"
+    },
+    "check_out_lng": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "present",
+        "absent",
+        "late",
+        "half_day",
+        "on_leave"
+      ],
+      "default": "present"
+    },
+    "working_hours": {
+      "type": "number",
+      "default": 0
+    },
+    "overtime_hours": {
+      "type": "number",
+      "default": 0
+    },
+    "late_minutes": {
+      "type": "number",
+      "default": 0
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "employee_id",
+    "date"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.employee_id": "{{user.data.employee_id}}"
+        },
+        {
+          "user_condition": {
+            "role": "hr_manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "super_admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.employee_id": "{{user.data.employee_id}}"
+        },
+        {
+          "user_condition": {
+            "role": "hr_manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "super_admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "manager"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.employee_id": "{{user.data.employee_id}}"
+        },
+        {
+          "user_condition": {
+            "role": "hr_manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "super_admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.employee_id": "{{user.data.employee_id}}"
+        },
+        {
+          "user_condition": {
+            "role": "hr_manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "super_admin"
+          }
+        }
+      ]
+    }
+  }
+}

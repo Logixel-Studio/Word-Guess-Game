@@ -1,0 +1,179 @@
+{
+  "name": "Invoice",
+  "type": "object",
+  "properties": {
+    "invoice_number": {
+      "type": "string"
+    },
+    "invoice_type": {
+      "type": "string",
+      "enum": [
+        "client",
+        "supplier"
+      ],
+      "default": "client"
+    },
+    "party_id": {
+      "type": "string",
+      "description": "Client or Supplier ID"
+    },
+    "party_name": {
+      "type": "string"
+    },
+    "party_phone": {
+      "type": "string"
+    },
+    "party_address": {
+      "type": "string"
+    },
+    "party_email": {
+      "type": "string"
+    },
+    "invoice_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "linked_record_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Sale or Purchase IDs"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number"
+          },
+          "unit_price": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "subtotal": {
+      "type": "number",
+      "default": 0
+    },
+    "tax_percent": {
+      "type": "number",
+      "default": 0
+    },
+    "tax_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "discount_percent": {
+      "type": "number",
+      "default": 0
+    },
+    "discount_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "grand_total": {
+      "type": "number",
+      "default": 0
+    },
+    "paid_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "remaining_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "unpaid",
+        "partial",
+        "paid"
+      ],
+      "default": "unpaid"
+    },
+    "account_number": {
+      "type": "string"
+    },
+    "iban": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "terms": {
+      "type": "string"
+    },
+    "company_phone": {
+      "type": "string",
+      "description": "Override company phone for this invoice"
+    },
+    "company_email": {
+      "type": "string",
+      "description": "Override company email for this invoice"
+    },
+    "company_website": {
+      "type": "string",
+      "description": "Override company website for this invoice"
+    },
+    "company_address": {
+      "type": "string",
+      "description": "Override company address for this invoice"
+    },
+    "download_count": {
+      "type": "number",
+      "default": 0
+    },
+    "print_count": {
+      "type": "number",
+      "default": 0
+    },
+    "created_by_id": {
+      "type": "string"
+    },
+    "created_by_name": {
+      "type": "string"
+    },
+    "created_by_email": {
+      "type": "string"
+    },
+    "created_by_role": {
+      "type": "string"
+    },
+    "updated_by_id": {
+      "type": "string"
+    },
+    "updated_by_name": {
+      "type": "string"
+    },
+    "updated_by_email": {
+      "type": "string"
+    },
+    "updated_by_role": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "invoice_type",
+    "party_id"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {}
+  }
+}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { db, uploadFile } from '@/api/supabaseClient';
+import { base44 } from '@/api/base44Client';
 import { useCurrency } from '@/lib/CurrencyContext';
 import PageHeader from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,12 +17,12 @@ export default function Settings() {
   const qc = useQueryClient();
   const { theme, setTheme } = useTheme();
   const { refreshSettings } = useCurrency();
-  const { data: settingsList = [] } = useQuery({ queryKey: ['settings'], queryFn: () => db.CompanySettings.list() });
+  const { data: settingsList = [] } = useQuery({ queryKey: ['settings'], queryFn: () => base44.entities.CompanySettings.list() });
   const settings = settingsList[0] || {};
 
   const [form, setForm] = useState({
     company_name: 'NUTRIMETH', currency: 'PKR', currency_symbol: 'Rs',
-    tax_rate: 0, address: '', phone: '', email: ''
+    tax_rate: 0, address: '', phone: '', email: '', website: ''
   });
 
   useEffect(() => {
@@ -35,16 +35,17 @@ export default function Settings() {
         address: settings.address || '',
         phone: settings.phone || '',
         email: settings.email || '',
+        website: settings.website || '',
       });
     }
   }, [settings.id]);
 
   const saveMut = useMutation({
     mutationFn: (data) => settings.id
-      ? db.CompanySettings.update(settings.id, data)
-      : db.CompanySettings.create(data),
+      ? base44.entities.CompanySettings.update(settings.id, data)
+      : base44.entities.CompanySettings.create(data),
     onSuccess: async () => {
-      // qc.invalidateQueries({ queryKey: ['settings'] });
+      qc.invalidateQueries({ queryKey: ['settings'] });
       await refreshSettings(); // Update global currency context immediately
       toast.success('Settings saved — currency updated across app');
     }
@@ -53,7 +54,7 @@ export default function Settings() {
   const handleUploadLogo = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const { file_url } = await uploadFile(file, 'logos');
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
     saveMut.mutate({ ...form, logo_url: file_url });
   };
 
@@ -88,6 +89,7 @@ export default function Settings() {
                 <div><Label>Phone</Label><Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
                 <div><Label>Email</Label><Input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
               </div>
+              <div><Label>Website</Label><Input value={form.website} onChange={e => setForm({ ...form, website: e.target.value })} placeholder="https://yourcompany.com" /></div>
               <div>
                 <Label>Company Logo</Label>
                 <Input type="file" accept="image/*" onChange={handleUploadLogo} className="mt-1" />

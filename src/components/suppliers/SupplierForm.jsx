@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '@/api/supabaseClient';
+import { base44 } from '@/api/base44Client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,9 +23,9 @@ export default function SupplierForm({ open, onClose, editing }) {
   }, [editing, open, reset]);
 
   const mutation = useMutation({
-    mutationFn: (data) => editing ? db.Supplier.update(editing.id, data) : db.Supplier.create(data),
+    mutationFn: (data) => editing ? base44.entities.Supplier.update(editing.id, data) : base44.entities.Supplier.create(data),
     onSuccess: () => {
-      // qc.invalidateQueries({ queryKey: ['suppliers'] });
+      qc.invalidateQueries({ queryKey: ['suppliers'] });
       toast.success(editing ? 'Supplier updated' : 'Supplier created');
       onClose();
     }

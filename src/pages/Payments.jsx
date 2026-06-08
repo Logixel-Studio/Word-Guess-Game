@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '@/api/supabaseClient';
+import { base44 } from '@/api/base44Client';
 import { formatDate } from '@/lib/formatters';
 import { useCurrency } from '@/lib/CurrencyContext';
 import { getDueDateInfo } from '@/lib/dueDateUtils';
@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Card, CardContent } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, Pencil, Search, SortAsc, SortDesc, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
+import { usePermissions } from '@/lib/PermissionsContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -27,6 +28,7 @@ const sectionColors = {
 
 export default function Payments() {
   const { formatCurrency } = useCurrency();
+  const { canUpdate } = usePermissions();
   const [sectionFilter, setSectionFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -35,9 +37,9 @@ export default function Payments() {
   const [expandedId, setExpandedId] = useState(null);
   const qc = useQueryClient();
 
-  const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: () => db.Sale.list() });
-  const { data: purchases = [] } = useQuery({ queryKey: ['purchases'], queryFn: () => db.Purchase.list() });
-  const { data: expenses = [] } = useQuery({ queryKey: ['expenses'], queryFn: () => db.Expense.list() });
+  const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: () => base44.entities.Sale.list() });
+  const { data: purchases = [] } = useQuery({ queryKey: ['purchases'], queryFn: () => base44.entities.Purchase.list() });
+  const { data: expenses = [] } = useQuery({ queryKey: ['expenses'], queryFn: () => base44.entities.Expense.list() });
 
   const allPayments = useMemo(() => [
     ...sales.map(s => ({ ...s, section: 'Sale', person: s.client_name, entity: 'Sale', subName: s.product_name })),
@@ -163,9 +165,7 @@ export default function Payments() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => { e.stopPropagation(); setEditPayment(row); }}>
-                    <Pencil className="w-3.5 h-3.5" />
-                  </Button>
+                  {canUpdate('payments') && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => { e.stopPropagation(); setEditPayment(row); }}><Pencil className="w-3.5 h-3.5" /></Button>}
                   {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                 </div>
               </div>
@@ -226,7 +226,7 @@ function PaymentEditDialog({ payment, onClose, qc, formatCurrency }) {
 
   const mutation = useMutation({
     mutationFn: () => {
-      const entityMap = { Sale: db.Sale, Purchase: db.Purchase, Expense: db.Expense };
+      const entityMap = { Sale: base44.entities.Sale, Purchase: base44.entities.Purchase, Expense: base44.entities.Expense };
       const entity = entityMap[payment.entity];
       const finalPaid = status === 'paid' ? payment.total : Number(paidAmount);
       if (finalPaid > payment.total) { toast.error('Paid amount cannot exceed total'); throw new Error('Invalid amount'); }
@@ -238,9 +238,9 @@ function PaymentEditDialog({ payment, onClose, qc, formatCurrency }) {
       });
     },
     onSuccess: () => {
-      // qc.invalidateQueries({ queryKey: ['sales'] });
-      // qc.invalidateQueries({ queryKey: ['purchases'] });
-      // qc.invalidateQueries({ queryKey: ['expenses'] });
+      qc.invalidateQueries({ queryKey: ['sales'] });
+      qc.invalidateQueries({ queryKey: ['purchases'] });
+      qc.invalidateQueries({ queryKey: ['expenses'] });
       toast.success('Payment updated');
       onClose();
     }

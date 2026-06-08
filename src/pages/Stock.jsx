@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '@/api/supabaseClient';
+import { base44 } from '@/api/base44Client';
 import { formatNumber, formatDate } from '@/lib/formatters';
 import { useCurrency } from '@/lib/CurrencyContext';
 import PageHeader from '@/components/shared/PageHeader';
@@ -14,19 +14,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Card, CardContent } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Package, DollarSign, AlertTriangle, XCircle, CheckCircle, ChevronDown, ChevronUp, Plus, Minus, Edit3, Search, BarChart3 } from 'lucide-react';
+import { usePermissions } from '@/lib/PermissionsContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function Stock() {
   const { formatCurrency } = useCurrency();
+  const { canUpdate } = usePermissions();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [adjustProduct, setAdjustProduct] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
 
-  const { data: products = [], isLoading } = useQuery({ queryKey: ['products'], queryFn: () => db.Product.list() });
-  const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: () => db.Sale.list() });
+  const { data: products = [], isLoading } = useQuery({ queryKey: ['products'], queryFn: () => base44.entities.Product.list() });
+  const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: () => base44.entities.Sale.list() });
 
   const filtered = products.filter(p => {
     const matchSearch = !search || p.name?.toLowerCase().includes(search.toLowerCase());
@@ -149,12 +151,12 @@ export default function Stock() {
                   </div>
 
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <Button
+                    {canUpdate('stock') && <Button
                       variant="outline" size="sm" className="h-8 px-2 hidden sm:flex gap-1 text-xs"
                       onClick={e => { e.stopPropagation(); setAdjustProduct(product); }}
                     >
                       <Edit3 className="w-3 h-3" /> Adjust
-                    </Button>
+                    </Button>}
                     {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                   </div>
                 </div>
@@ -195,11 +197,11 @@ export default function Stock() {
                           </div>
                         )}
 
-                        <div className="flex justify-end mt-3">
+                        {canUpdate('stock') && <div className="flex justify-end mt-3">
                           <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setAdjustProduct(product)}>
                             <Edit3 className="w-3 h-3" /> Adjust Stock
                           </Button>
-                        </div>
+                        </div>}
                       </div>
                     </motion.div>
                   )}
@@ -228,11 +230,9 @@ function StockAdjustDialog({ product, onClose, qc }) {
 
       if (newQty < 0) { toast.error('Stock cannot be negative'); throw new Error('invalid'); }
       let status = newQty === 0 ? 'out_of_stock' : newQty <= 10 ? 'low_stock' : 'in_stock';
-      return db.Product.update(product.id, { stock_qty: newQty, status });
+      return base44.entities.Product.update(product.id, { stock_qty: newQty, status });
     },
-    onSuccess: () => {
-      //  qc.invalidateQueries({ queryKey: ['products'] });
-     toast.success('Stock updated'); onClose(); setQty(''); }
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast.success('Stock updated'); onClose(); setQty(''); }
   });
 
   if (!product) return null;

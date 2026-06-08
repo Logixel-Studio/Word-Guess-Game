@@ -1,0 +1,76 @@
+{
+  "name": "RolePermission",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "description": "Role key e.g. sales_manager"
+    },
+    "module": {
+      "type": "string",
+      "description": "Module key e.g. sales"
+    },
+    "can_create": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_read": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_update": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_delete": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_approve": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_export": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_print": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_assign": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_manage": {
+      "type": "boolean",
+      "default": false
+    },
+    "full_access": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "role",
+    "module"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "super_admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "super_admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "super_admin"
+      }
+    }
+  }
+}

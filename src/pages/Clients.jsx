@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '@/api/supabaseClient';
+import { base44 } from '@/api/base44Client';
 import { formatNumber, formatDate } from '@/lib/formatters';
 import { useCurrency } from '@/lib/CurrencyContext';
 import PageHeader from '@/components/shared/PageHeader';
@@ -10,37 +10,30 @@ import StatusBadge from '@/components/shared/StatusBadge';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import DueDateBadge from '@/components/shared/DueDateBadge';
 import ClientForm from '@/components/clients/ClientForm';
-import CreatedByBadge from '@/components/shared/CreatedByBadge';
-import CreatorFilter from '@/components/shared/CreatorFilter';
 import { Button } from '@/components/ui/button';
 import { Users, UserCheck, Clock, DollarSign, Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePermissions } from '@/lib/PermissionsContext';
 
 export default function Clients() {
   const { formatCurrency } = useCurrency();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
-  const [creatorFilter, setCreatorFilter] = useState('');
   const qc = useQueryClient();
 
-  const { data: clients = [], isLoading } = useQuery({ queryKey: ['clients'], queryFn: () => db.Client.list() });
-  const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: () => db.Sale.list() });
+  const { data: clients = [], isLoading } = useQuery({ queryKey: ['clients'], queryFn: () => base44.entities.Client.list() });
+  const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: () => base44.entities.Sale.list() });
 
   const deleteMut = useMutation({
-    mutationFn: (id) => db.Client.delete(id),
-    onSuccess: () => {
-      //  qc.invalidateQueries({ queryKey: ['clients'] });
-     toast.success('Client deleted'); setDeleteId(null); }
+    mutationFn: (id) => base44.entities.Client.delete(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['clients'] }); toast.success('Client deleted'); setDeleteId(null); }
   });
 
   const activeClients = clients.filter(c => c.status === 'active').length;
   const pendingPayments = sales.filter(s => s.payment_status !== 'paid').reduce((a, s) => a + ((s.total || 0) - (s.paid_amount || 0)), 0);
   const totalRevenue = sales.reduce((a, s) => a + (s.total || 0), 0);
-
-  const filtered = creatorFilter
-    ? clients.filter(c => c.creator_name === creatorFilter)
-    : clients;
 
   const columns = [
     { key: 'name', label: 'Name', render: v => <span className="font-medium">{v}</span> },
@@ -51,12 +44,8 @@ export default function Clients() {
     {
       key: 'id', label: 'Actions', render: (_, row) => (
         <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(row); setFormOpen(true); }}>
-            <Pencil className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(row.id)}>
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          {canUpdate('clients') && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(row); setFormOpen(true); }}><Pencil className="w-4 h-4" /></Button>}
+          {canDelete('clients') && <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(row.id)}><Trash2 className="w-4 h-4" /></Button>}
         </div>
       )
     }
@@ -82,7 +71,6 @@ export default function Clients() {
             </div>
           )}
         </div>
-        <CreatedByBadge row={row} />
       </div>
     );
   };
@@ -90,9 +78,7 @@ export default function Clients() {
   return (
     <div>
       <PageHeader title="Clients" description="Manage your client relationships">
-        <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="gap-2">
-          <Plus className="w-4 h-4" /> Add Client
-        </Button>
+        {canCreate('clients') && <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="gap-2"><Plus className="w-4 h-4" /> Add Client</Button>}
       </PageHeader>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -102,11 +88,7 @@ export default function Clients() {
         <SummaryCard title="Revenue" value={formatCurrency(totalRevenue)} icon={DollarSign} delay={0.15} />
       </div>
 
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <CreatorFilter value={creatorFilter} onChange={setCreatorFilter} />
-      </div>
-
-      <DataTable columns={columns} data={filtered} isLoading={isLoading} searchKey="name" expandedContent={expandedContent} />
+      <DataTable columns={columns} data={clients} isLoading={isLoading} searchKey="name" expandedContent={expandedContent} />
 
       <ClientForm open={formOpen} onClose={() => { setFormOpen(false); setEditing(null); }} editing={editing} />
       <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={() => deleteMut.mutate(deleteId)} />

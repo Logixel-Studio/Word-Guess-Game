@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { db } from '@/api/supabaseClient';
+import { base44 } from '@/api/base44Client';
 
 const CurrencyContext = createContext({
   symbol: 'Rs',
@@ -14,7 +14,7 @@ export function CurrencyProvider({ children }) {
 
   const loadSettings = useCallback(async () => {
     try {
-      const list = await db.CompanySettings.list();
+      const list = await base44.entities.CompanySettings.list();
       if (list && list.length > 0) {
         setSymbol(list[0].currency_symbol || 'Rs');
         setCurrency(list[0].currency || 'PKR');

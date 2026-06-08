@@ -1,0 +1,198 @@
+{
+  "name": "Employee",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string",
+      "description": "Full name"
+    },
+    "employee_id": {
+      "type": "string",
+      "description": "Unique employee ID e.g. EMP-001"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email address"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "employee",
+        "manager",
+        "accountant",
+        "hr_manager",
+        "inventory_manager",
+        "sales_manager",
+        "admin"
+      ],
+      "default": "employee"
+    },
+    "department": {
+      "type": "string"
+    },
+    "designation": {
+      "type": "string"
+    },
+    "joining_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "basic_salary": {
+      "type": "number",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "on_leave"
+      ],
+      "default": "active"
+    },
+    "address": {
+      "type": "string"
+    },
+    "cnic": {
+      "type": "string",
+      "description": "National ID"
+    },
+    "bank_account": {
+      "type": "string"
+    },
+    "profile_photo": {
+      "type": "string"
+    },
+    "shift_start": {
+      "type": "string",
+      "description": "Shift start time e.g. 09:00"
+    },
+    "shift_end": {
+      "type": "string",
+      "description": "Shift end time e.g. 18:00"
+    },
+    "grace_minutes": {
+      "type": "number",
+      "default": 15,
+      "description": "Late grace period in minutes"
+    },
+    "overtime_rate": {
+      "type": "number",
+      "default": 1.5,
+      "description": "Overtime multiplier"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "full_name"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "hr_manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "super_admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "hr_manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "super_admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "accountant"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "inventory_manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "sales_manager"
+          }
+        },
+        {
+          "data.email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "hr_manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "super_admin"
+          }
+        },
+        {
+          "data.email": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "hr_manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "super_admin"
+          }
+        }
+      ]
+    }
+  }
+}

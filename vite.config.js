@@ -4,10 +4,7 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  logLevel: 'error',
-  plugins: [
-    react(),
-  ],
+  plugins: [react()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

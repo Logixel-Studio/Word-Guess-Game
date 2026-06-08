@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '@/api/supabaseClient';
+import { base44 } from '@/api/base44Client';
 import { useCurrency } from '@/lib/CurrencyContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -46,11 +46,9 @@ export default function ProductForm({ open, onClose, editing }) {
       const stockQty = Number(data.stock_qty) || 0;
       let status = stockQty === 0 ? 'out_of_stock' : stockQty <= 10 ? 'low_stock' : 'in_stock';
       const payload = { ...data, materials, production_cost: productionCost, stock_qty: stockQty, status };
-      return editing ? db.Product.update(editing.id, payload) : db.Product.create(payload);
+      return editing ? base44.entities.Product.update(editing.id, payload) : base44.entities.Product.create(payload);
     },
-    onSuccess: () => {
-      //  qc.invalidateQueries({ queryKey: ['products'] });
-     toast.success(editing ? 'Updated' : 'Created'); onClose(); }
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast.success(editing ? 'Updated' : 'Created'); onClose(); }
   });
 
   return (

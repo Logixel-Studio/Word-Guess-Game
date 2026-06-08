@@ -1,0 +1,71 @@
+{
+  "name": "PermissionChangeLog",
+  "type": "object",
+  "properties": {
+    "changed_by_id": {
+      "type": "string"
+    },
+    "changed_by_name": {
+      "type": "string"
+    },
+    "changed_by_email": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "module": {
+      "type": "string"
+    },
+    "permission_key": {
+      "type": "string"
+    },
+    "old_value": {
+      "type": "boolean"
+    },
+    "new_value": {
+      "type": "boolean"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "granted",
+        "revoked",
+        "role_created",
+        "role_deleted",
+        "role_renamed",
+        "role_archived"
+      ],
+      "default": "granted"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "role",
+    "action"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "super_admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "super_admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "super_admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "super_admin"
+      }
+    }
+  }
+}

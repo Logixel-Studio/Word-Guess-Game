@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '@/api/supabaseClient';
+import { base44 } from '@/api/base44Client';
 import { formatNumber, formatDate } from '@/lib/formatters';
 import { useCurrency } from '@/lib/CurrencyContext';
 import PageHeader from '@/components/shared/PageHeader';
@@ -10,35 +10,30 @@ import StatusBadge from '@/components/shared/StatusBadge';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import DueDateBadge from '@/components/shared/DueDateBadge';
 import SupplierForm from '@/components/suppliers/SupplierForm';
-import CreatedByBadge from '@/components/shared/CreatedByBadge';
-import CreatorFilter from '@/components/shared/CreatorFilter';
 import { Button } from '@/components/ui/button';
 import { Truck, UserCheck, Clock, ShoppingCart, Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePermissions } from '@/lib/PermissionsContext';
 
 export default function Suppliers() {
   const { formatCurrency } = useCurrency();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
-  const [creatorFilter, setCreatorFilter] = useState('');
   const qc = useQueryClient();
 
-  const { data: suppliers = [], isLoading } = useQuery({ queryKey: ['suppliers'], queryFn: () => db.Supplier.list() });
-  const { data: purchases = [] } = useQuery({ queryKey: ['purchases'], queryFn: () => db.Purchase.list() });
+  const { data: suppliers = [], isLoading } = useQuery({ queryKey: ['suppliers'], queryFn: () => base44.entities.Supplier.list() });
+  const { data: purchases = [] } = useQuery({ queryKey: ['purchases'], queryFn: () => base44.entities.Purchase.list() });
 
   const deleteMut = useMutation({
-    mutationFn: (id) => db.Supplier.delete(id),
-    onSuccess: () => { 
-      // qc.invalidateQueries({ queryKey: ['suppliers'] }); 
-    toast.success('Supplier deleted'); setDeleteId(null); }
+    mutationFn: (id) => base44.entities.Supplier.delete(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['suppliers'] }); toast.success('Supplier deleted'); setDeleteId(null); }
   });
 
   const activeSuppliers = suppliers.filter(s => s.status === 'active').length;
   const pendingPayments = purchases.filter(p => p.payment_status !== 'paid').reduce((a, p) => a + ((p.total || 0) - (p.paid_amount || 0)), 0);
   const totalPurchases = purchases.reduce((a, p) => a + (p.total || 0), 0);
-
-  const filtered = creatorFilter ? suppliers.filter(s => s.creator_name === creatorFilter) : suppliers;
 
   const columns = [
     { key: 'name', label: 'Name', render: v => <span className="font-medium">{v}</span> },
@@ -49,8 +44,8 @@ export default function Suppliers() {
     {
       key: 'id', label: 'Actions', render: (_, row) => (
         <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(row); setFormOpen(true); }}><Pencil className="w-4 h-4" /></Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(row.id)}><Trash2 className="w-4 h-4" /></Button>
+          {canUpdate('suppliers') && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(row); setFormOpen(true); }}><Pencil className="w-4 h-4" /></Button>}
+          {canDelete('suppliers') && <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(row.id)}><Trash2 className="w-4 h-4" /></Button>}
         </div>
       )
     }
@@ -76,7 +71,6 @@ export default function Suppliers() {
             </div>
           )}
         </div>
-        <CreatedByBadge row={row} />
       </div>
     );
   };
@@ -84,9 +78,7 @@ export default function Suppliers() {
   return (
     <div>
       <PageHeader title="Suppliers" description="Manage your supplier relationships">
-        <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="gap-2">
-          <Plus className="w-4 h-4" /> Add Supplier
-        </Button>
+        {canCreate('suppliers') && <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="gap-2"><Plus className="w-4 h-4" /> Add Supplier</Button>}
       </PageHeader>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -96,11 +88,7 @@ export default function Suppliers() {
         <SummaryCard title="Total Purchases" value={formatCurrency(totalPurchases)} icon={ShoppingCart} delay={0.15} />
       </div>
 
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <CreatorFilter value={creatorFilter} onChange={setCreatorFilter} />
-      </div>
-
-      <DataTable columns={columns} data={filtered} isLoading={isLoading} searchKey="name" expandedContent={expandedContent} />
+      <DataTable columns={columns} data={suppliers} isLoading={isLoading} searchKey="name" expandedContent={expandedContent} />
 
       <SupplierForm open={formOpen} onClose={() => { setFormOpen(false); setEditing(null); }} editing={editing} />
       <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={() => deleteMut.mutate(deleteId)} />

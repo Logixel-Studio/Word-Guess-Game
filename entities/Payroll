@@ -1,0 +1,224 @@
+{
+  "name": "Payroll",
+  "type": "object",
+  "properties": {
+    "employee_id": {
+      "type": "string",
+      "description": "Employee DB UUID"
+    },
+    "employee_name": {
+      "type": "string"
+    },
+    "employee_email": {
+      "type": "string"
+    },
+    "employee_department": {
+      "type": "string"
+    },
+    "employee_role": {
+      "type": "string"
+    },
+    "month": {
+      "type": "string",
+      "description": "YYYY-MM"
+    },
+    "basic_salary": {
+      "type": "number",
+      "default": 0
+    },
+    "overtime_hours": {
+      "type": "number",
+      "default": 0
+    },
+    "overtime_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "overtime_pay": {
+      "type": "number",
+      "default": 0
+    },
+    "bonus": {
+      "type": "number",
+      "default": 0
+    },
+    "bonus_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "deductions": {
+      "type": "number",
+      "default": 0
+    },
+    "late_deduction": {
+      "type": "number",
+      "default": 0
+    },
+    "leave_deduction": {
+      "type": "number",
+      "default": 0
+    },
+    "gross_salary": {
+      "type": "number",
+      "default": 0
+    },
+    "net_salary": {
+      "type": "number",
+      "default": 0
+    },
+    "total_days": {
+      "type": "number",
+      "default": 0
+    },
+    "present_days": {
+      "type": "number",
+      "default": 0
+    },
+    "absent_days": {
+      "type": "number",
+      "default": 0
+    },
+    "late_days": {
+      "type": "number",
+      "default": 0
+    },
+    "late_minutes": {
+      "type": "number",
+      "default": 0
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "paid"
+      ],
+      "default": "pending"
+    },
+    "paid_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "created_by_id": {
+      "type": "string"
+    },
+    "created_by_name": {
+      "type": "string"
+    },
+    "created_by_email": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "employee_id",
+    "month"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "hr_manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "accountant"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "super_admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.employee_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "hr_manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "accountant"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "super_admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "manager"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "hr_manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "accountant"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "super_admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "hr_manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "accountant"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "super_admin"
+          }
+        }
+      ]
+    }
+  }
+}
