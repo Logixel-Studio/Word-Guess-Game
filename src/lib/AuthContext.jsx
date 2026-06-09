@@ -5,70 +5,80 @@ import { auth as supabaseAuth } from '@/api/supabaseAdapter';
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser]                   = useState(null);
+  const [user,            setUser]            = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [authChecked, setAuthChecked]     = useState(false);
-  const [appPublicSettings]               = useState({ id: 'nutrimeth', public_settings: {} });
+  const [isLoadingAuth,   setIsLoadingAuth]   = useState(true);
+  const [authChecked,     setAuthChecked]     = useState(false);
+  const [appPublicSettings] = useState({ id: 'nutrimeth', public_settings: {} });
 
-  const resolving = useRef(false);   // prevent concurrent resolveProfile calls
+  const resolving = useRef(false);
   const mounted   = useRef(true);
 
+  // ── Resolve user profile from Supabase profiles table ──────────────────────
   const resolveProfile = useCallback(async (authUser) => {
     if (resolving.current) return;
     resolving.current = true;
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authUser.id)
-        .maybeSingle();                   // maybeSingle won't throw on 0 rows
+      // Try to get profile
+      const { data: profile, error: fetchErr } = await supabase
+        .from('profiles').select('*').eq('id', authUser.id).maybeSingle();
 
       let finalProfile = profile;
-      if (!finalProfile) {
-        const { data: created } = await supabase
-          .from('profiles')
-          .insert({
-            id: authUser.id,
-            email: authUser.email,
-            full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || '',
-            role: authUser.user_metadata?.role || 'employee',
-            avatar_url: authUser.user_metadata?.avatar_url || '',
-          })
-          .select()
-          .maybeSingle();
+
+      // If profiles table exists but no row → create one
+      if (!finalProfile && !fetchErr?.message?.includes('404')) {
+        const { data: created } = await supabase.from('profiles').insert({
+          id:         authUser.id,
+          email:      authUser.email,
+          full_name:  authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || '',
+          role:       authUser.user_metadata?.role || 'employee',
+          avatar_url: authUser.user_metadata?.avatar_url || '',
+        }).select().maybeSingle();
         finalProfile = created;
       }
 
       if (!mounted.current) return;
-      setUser({
-        id: authUser.id,
-        email: authUser.email,
-        full_name: finalProfile?.full_name || '',
-        role: finalProfile?.role || 'employee',
+
+      const merged = {
+        id:         authUser.id,
+        email:      authUser.email,
+        full_name:  finalProfile?.full_name  || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+        role:       finalProfile?.role       || authUser.user_metadata?.role || 'employee',
         avatar_url: finalProfile?.avatar_url || '',
         ...finalProfile,
-      });
+      };
+
+      setUser(merged);
       setIsAuthenticated(true);
     } catch (err) {
-      console.error('Profile resolve error:', err);
+      console.warn('[AuthContext] resolveProfile error (non-fatal):', err.message);
       if (!mounted.current) return;
-      // Still mark as authenticated so the app doesn't loop
-      setUser({ id: authUser.id, email: authUser.email, role: 'employee' });
+      // Still authenticate — just use auth metadata
+      setUser({
+        id:        authUser.id,
+        email:     authUser.email,
+        full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+        role:      authUser.user_metadata?.role || 'employee',
+        avatar_url:'',
+      });
       setIsAuthenticated(true);
     } finally {
       resolving.current = false;
-      if (mounted.current) {
-        setIsLoadingAuth(false);
-        setAuthChecked(true);
-      }
+      if (mounted.current) { setIsLoadingAuth(false); setAuthChecked(true); }
     }
   }, []);
+
+  // ── Force-refresh profile (call after role change) ────────────────────────
+  const refreshProfile = useCallback(async () => {
+    supabaseAuth.clearCache();
+    resolving.current = false;
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) await resolveProfile(authUser);
+  }, [resolveProfile]);
 
   useEffect(() => {
     mounted.current = true;
 
-    // One-time session check on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted.current) return;
       if (session?.user) {
@@ -86,12 +96,12 @@ export const AuthProvider = ({ children }) => {
       setAuthChecked(true);
     });
 
-    // Auth state listener — only react to explicit sign in / sign out
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted.current) return;
       supabaseAuth.clearCache();
 
       if (event === 'SIGNED_IN' && session?.user) {
+        resolving.current = false;
         resolveProfile(session.user);
       } else if (event === 'SIGNED_OUT') {
         resolving.current = false;
@@ -100,26 +110,18 @@ export const AuthProvider = ({ children }) => {
         setIsLoadingAuth(false);
         setAuthChecked(true);
       }
-      // Intentionally ignore TOKEN_REFRESHED — it causes the loop
+      // TOKEN_REFRESHED intentionally ignored — caused infinite loop
     });
 
-    return () => {
-      mounted.current = false;
-      subscription.unsubscribe();
-    };
+    return () => { mounted.current = false; subscription.unsubscribe(); };
   }, [resolveProfile]);
 
-  const logout = useCallback(async (shouldRedirect = true) => {
+  const logout = useCallback(async () => {
     supabaseAuth.clearCache();
     resolving.current = false;
     await supabase.auth.signOut();
     setUser(null);
     setIsAuthenticated(false);
-    if (shouldRedirect) window.location.href = '/login';
-  }, []);
-
-  const navigateToLogin = useCallback(() => {
-    supabaseAuth.clearCache();
     window.location.href = '/login';
   }, []);
 
@@ -133,9 +135,10 @@ export const AuthProvider = ({ children }) => {
       appPublicSettings,
       authChecked,
       logout,
-      navigateToLogin,
-      checkUserAuth: () => {},
-      checkAppState: () => {},
+      refreshProfile,          // ← call this after changing role in Supabase
+      navigateToLogin: () => { supabaseAuth.clearCache(); window.location.href = '/login'; },
+      checkUserAuth: refreshProfile,
+      checkAppState: refreshProfile,
     }}>
       {children}
     </AuthContext.Provider>

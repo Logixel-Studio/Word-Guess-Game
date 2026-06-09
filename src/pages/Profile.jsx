@@ -8,33 +8,33 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { UserCircle, Mail, Shield, Loader2 } from 'lucide-react';
+import { UserCircle, Mail, Shield, Loader2, RefreshCw } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { ROLE_LABELS, ROLE_COLORS } from '@/lib/roleConfig';
+import { cn } from '@/lib/utils';
 
 export default function Profile() {
-  const { user, checkUserAuth } = useAuth();
-  const [uploading, setUploading] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || '');
+  const { user, refreshProfile } = useAuth();
+  const [uploading,   setUploading]   = useState(false);
+  const [refreshing,  setRefreshing]  = useState(false);
+  const [avatarUrl,   setAvatarUrl]   = useState(user?.avatar_url || '');
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
     try {
-      // Upload to Supabase Storage
-      const ext = file.name.split('.').pop();
+      const ext  = file.name.split('.').pop();
       const path = `avatars/${user.id}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('nutrimeth-files')
-        .upload(path, file, { upsert: true });
-      if (uploadError) throw uploadError;
+      const { error: uploadErr } = await supabase.storage
+        .from('nutrimeth-files').upload(path, file, { upsert: true });
+      if (uploadErr) throw uploadErr;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('nutrimeth-files')
-        .getPublicUrl(path);
+        .from('nutrimeth-files').getPublicUrl(path);
 
-      // Update profile row
       await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
       setAvatarUrl(publicUrl);
       supabaseAuth.clearCache();
@@ -46,23 +46,43 @@ export default function Profile() {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshProfile();
+      toast.success('Profile refreshed — role updated');
+    } catch (err) {
+      toast.error('Refresh failed');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   if (!user) return (
     <div className="flex items-center justify-center h-64">
       <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
     </div>
   );
 
+  const roleLabel = ROLE_LABELS?.[user.role] || user.role;
+  const roleColor = ROLE_COLORS?.[user.role] || '';
+
   return (
     <div>
-      <PageHeader title="Profile" description="Your account information" />
-      <div className="max-w-2xl mx-auto space-y-6">
+      <PageHeader title="Profile" description="Your account information">
+        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="gap-2">
+          <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
+          Refresh Role
+        </Button>
+      </PageHeader>
 
+      <div className="max-w-2xl mx-auto space-y-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><UserCircle className="w-5 h-5" /> Profile Photo</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent>
               <div className="flex items-center gap-6">
                 <Avatar className="w-20 h-20">
                   <AvatarImage src={avatarUrl} />
@@ -73,14 +93,15 @@ export default function Profile() {
                 <div>
                   <p className="text-lg font-semibold">{user.full_name || 'User'}</p>
                   <p className="text-sm text-muted-foreground">{user.email}</p>
-                  <div className="mt-2 flex items-center gap-2">
+                  <Badge className={cn('mt-1 text-xs', roleColor)}>{roleLabel}</Badge>
+                  <div className="mt-3">
                     <Label htmlFor="avatar-upload"
-                      className="cursor-pointer text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90 transition flex items-center gap-1">
+                      className="cursor-pointer text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90 transition flex items-center gap-1 w-fit">
                       {uploading && <Loader2 className="w-3 h-3 animate-spin" />}
                       {uploading ? 'Uploading...' : 'Change Photo'}
                     </Label>
-                    <Input id="avatar-upload" type="file" accept="image/*" onChange={handleUpload}
-                      className="hidden" disabled={uploading} />
+                    <Input id="avatar-upload" type="file" accept="image/*"
+                      onChange={handleUpload} className="hidden" disabled={uploading} />
                   </div>
                 </div>
               </div>
@@ -100,13 +121,16 @@ export default function Profile() {
                 <Label>Role</Label>
                 <div className="flex items-center gap-2 mt-1">
                   <Shield className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium capitalize">{user.role?.replace(/_/g, ' ') || 'user'}</span>
+                  <span className="text-sm font-medium">{roleLabel}</span>
+                  <Badge variant="outline" className={cn('text-xs', roleColor)}>{user.role}</Badge>
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  If your role was recently changed by an admin, click "Refresh Role" above.
+                </p>
               </div>
             </CardContent>
           </Card>
         </motion.div>
-
       </div>
     </div>
   );
