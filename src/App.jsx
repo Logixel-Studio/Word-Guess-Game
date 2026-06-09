@@ -1,11 +1,11 @@
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from "@/components/ui/sonner"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
-import PageNotFound from './lib/PageNotFound';
+import { BrowserRouter, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { CurrencyProvider } from '@/lib/CurrencyContext';
 import { PermissionsProvider } from '@/lib/PermissionsContext';
+import PageNotFound from './lib/PageNotFound';
 
 import Login from '@/pages/Login';
 import AppLayout from '@/components/layout/AppLayout';
@@ -37,7 +37,7 @@ import Permissions from '@/pages/Permissions';
 import Invoices from '@/pages/Invoices';
 import ActionCenter from '@/pages/ActionCenter';
 
-// ── Guard: redirect unauthenticated users to /login ────────────────────────
+// Auth guard
 function RequireAuth({ children }) {
   const { isAuthenticated, isLoadingAuth, authChecked } = useAuth();
   const location = useLocation();
@@ -56,65 +56,69 @@ function RequireAuth({ children }) {
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-
   return children;
 }
 
-const AuthenticatedApp = () => (
-  <RequireAuth>
-    <Routes>
-      <Route element={<AppLayout />}>
-        <Route path="/"                 element={<Dashboard />} />
-        <Route path="/clients"          element={<Clients />} />
-        <Route path="/suppliers"        element={<Suppliers />} />
-        <Route path="/purchasing"       element={<Purchasing />} />
-        <Route path="/expenses"         element={<Expenses />} />
-        <Route path="/products"         element={<Products />} />
-        <Route path="/sales"            element={<Sales />} />
-        <Route path="/payments"         element={<Payments />} />
-        <Route path="/stock"            element={<Stock />} />
-        <Route path="/employees"        element={<Employees />} />
-        <Route path="/attendance"       element={<Attendance />} />
-        <Route path="/payroll"          element={<PayrollPage />} />
-        <Route path="/tasks"            element={<Tasks />} />
-        <Route path="/hrm"              element={<HRM />} />
-        <Route path="/my-attendance"    element={<MyAttendance />} />
-        <Route path="/my-tasks"         element={<MyTasks />} />
-        <Route path="/my-payroll"       element={<MyPayroll />} />
-        <Route path="/my-leaves"        element={<MyLeaves />} />
-        <Route path="/user-management"  element={<UserManagement />} />
-        <Route path="/office-locations" element={<OfficeLocations />} />
-        <Route path="/activity-logs"    element={<ActivityLogs />} />
-        <Route path="/reports"          element={<Reports />} />
-        <Route path="/permissions"      element={<Permissions />} />
-        <Route path="/invoices"         element={<Invoices />} />
-        <Route path="/action-center"    element={<ActionCenter />} />
-        <Route path="/settings"         element={<Settings />} />
-        <Route path="/profile"          element={<Profile />} />
-      </Route>
-      <Route path="*" element={<PageNotFound />} />
-    </Routes>
-  </RequireAuth>
-);
-
-function App() {
+function AppRoutes() {
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <CurrencyProvider>
-          <PermissionsProvider>
-            <Router>
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/*"     element={<AuthenticatedApp />} />
-              </Routes>
-            </Router>
-          </PermissionsProvider>
-          <Toaster />
-        </CurrencyProvider>
-      </QueryClientProvider>
-    </AuthProvider>
+    <Routes>
+      {/* Public */}
+      <Route path="/login" element={<Login />} />
+
+      {/* Protected */}
+      <Route path="/*" element={
+        <RequireAuth>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route index                     element={<Dashboard />} />
+              <Route path="clients"            element={<Clients />} />
+              <Route path="suppliers"          element={<Suppliers />} />
+              <Route path="purchasing"         element={<Purchasing />} />
+              <Route path="expenses"           element={<Expenses />} />
+              <Route path="products"           element={<Products />} />
+              <Route path="sales"              element={<Sales />} />
+              <Route path="payments"           element={<Payments />} />
+              <Route path="stock"              element={<Stock />} />
+              <Route path="employees"          element={<Employees />} />
+              <Route path="attendance"         element={<Attendance />} />
+              <Route path="payroll"            element={<PayrollPage />} />
+              <Route path="tasks"              element={<Tasks />} />
+              <Route path="hrm"                element={<HRM />} />
+              <Route path="my-attendance"      element={<MyAttendance />} />
+              <Route path="my-tasks"           element={<MyTasks />} />
+              <Route path="my-payroll"         element={<MyPayroll />} />
+              <Route path="my-leaves"          element={<MyLeaves />} />
+              <Route path="user-management"    element={<UserManagement />} />
+              <Route path="office-locations"   element={<OfficeLocations />} />
+              <Route path="activity-logs"      element={<ActivityLogs />} />
+              <Route path="reports"            element={<Reports />} />
+              <Route path="permissions"        element={<Permissions />} />
+              <Route path="invoices"           element={<Invoices />} />
+              <Route path="action-center"      element={<ActionCenter />} />
+              <Route path="settings"           element={<Settings />} />
+              <Route path="profile"            element={<Profile />} />
+              <Route path="*"                  element={<PageNotFound />} />
+            </Route>
+          </Routes>
+        </RequireAuth>
+      } />
+    </Routes>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClientInstance}>
+      <AuthProvider>
+        <BrowserRouter>
+          <CurrencyProvider>
+            <PermissionsProvider>
+              <AppRoutes />
+              <Toaster richColors position="top-right" />
+            </PermissionsProvider>
+          </CurrencyProvider>
+        </BrowserRouter>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+}

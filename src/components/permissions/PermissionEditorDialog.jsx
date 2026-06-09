@@ -48,7 +48,7 @@ export default function PermissionEditorDialog({ open, onClose, module, allRoles
         can_assign: existing.can_assign ?? false,
         can_manage: existing.can_manage ?? false,
         full_access: existing.full_access ?? false,
-        _id: existing.id || null,
+        id: existing.id || null,
       };
     });
     setMatrix(initial);
@@ -61,10 +61,10 @@ export default function PermissionEditorDialog({ open, onClose, module, allRoles
         const perms = matrix[role.key];
         if (!perms) continue;
         const payload = { role: role.key, module: module.key, ...perms };
-        delete payload._id;
+        delete payload.id;
 
-        if (perms._id) {
-          ops.push(base44.entities.RolePermission.update(perms._id, payload));
+        if (perms.id) {
+          ops.push(base44.entities.RolePermission.update(perms.id, payload));
         } else {
           ops.push(base44.entities.RolePermission.create(payload));
         }

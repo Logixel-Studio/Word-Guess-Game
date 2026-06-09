@@ -1,82 +1,32 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { auth as supabaseAuth } from '@/api/supabaseAdapter';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser]                       = useState(null);
+  const [user, setUser]                   = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth]     = useState(true);
-  const [isLoadingPublicSettings]             = useState(false); // No public settings needed
-  const [authError, setAuthError]             = useState(null);
-  const [authChecked, setAuthChecked]         = useState(false);
-  const [appPublicSettings]                   = useState({ id: 'nutrimeth', public_settings: {} });
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [authChecked, setAuthChecked]     = useState(false);
+  const [appPublicSettings]               = useState({ id: 'nutrimeth', public_settings: {} });
 
-  // Load current session on mount
-  useEffect(() => {
-    let mounted = true;
+  const resolving = useRef(false);   // prevent concurrent resolveProfile calls
+  const mounted   = useRef(true);
 
-    const loadSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!mounted) return;
-
-        if (session?.user) {
-          await resolveProfile(session.user);
-        } else {
-          setIsAuthenticated(false);
-          setUser(null);
-        }
-      } catch (err) {
-        console.error('Session load error:', err);
-        if (mounted) {
-          setAuthError({ type: 'unknown', message: err.message });
-        }
-      } finally {
-        if (mounted) {
-          setIsLoadingAuth(false);
-          setAuthChecked(true);
-        }
-      }
-    };
-
-    loadSession();
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-      supabaseAuth.clearCache();
-
-      if (event === 'SIGNED_IN' && session?.user) {
-        await resolveProfile(session.user);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-        setIsAuthenticated(false);
-        setAuthError(null);
-      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        await resolveProfile(session.user);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const resolveProfile = async (authUser) => {
+  const resolveProfile = useCallback(async (authUser) => {
+    if (resolving.current) return;
+    resolving.current = true;
     try {
-      // Fetch or create profile
-      let { data: profile } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', authUser.id)
-        .single();
+        .maybeSingle();                   // maybeSingle won't throw on 0 rows
 
-      if (!profile) {
-        // Auto-create profile on first login
-        const { data: newProfile } = await supabase
+      let finalProfile = profile;
+      if (!finalProfile) {
+        const { data: created } = await supabase
           .from('profiles')
           .insert({
             id: authUser.id,
@@ -86,50 +36,82 @@ export const AuthProvider = ({ children }) => {
             avatar_url: authUser.user_metadata?.avatar_url || '',
           })
           .select()
-          .single();
-        profile = newProfile;
+          .maybeSingle();
+        finalProfile = created;
       }
 
-      const merged = {
+      if (!mounted.current) return;
+      setUser({
         id: authUser.id,
         email: authUser.email,
-        full_name: profile?.full_name || '',
-        role: profile?.role || 'employee',
-        avatar_url: profile?.avatar_url || '',
-        ...profile,
-      };
-
-      setUser(merged);
+        full_name: finalProfile?.full_name || '',
+        role: finalProfile?.role || 'employee',
+        avatar_url: finalProfile?.avatar_url || '',
+        ...finalProfile,
+      });
       setIsAuthenticated(true);
-      setAuthError(null);
     } catch (err) {
       console.error('Profile resolve error:', err);
+      if (!mounted.current) return;
+      // Still mark as authenticated so the app doesn't loop
       setUser({ id: authUser.id, email: authUser.email, role: 'employee' });
       setIsAuthenticated(true);
-    }
-  };
-
-  const checkUserAuth = useCallback(async () => {
-    setIsLoadingAuth(true);
-    try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        await resolveProfile(authUser);
-      } else {
-        setIsAuthenticated(false);
-        setUser(null);
-      }
-    } catch (err) {
-      setIsAuthenticated(false);
-      setAuthError({ type: 'auth_required', message: 'Authentication required' });
     } finally {
-      setIsLoadingAuth(false);
-      setAuthChecked(true);
+      resolving.current = false;
+      if (mounted.current) {
+        setIsLoadingAuth(false);
+        setAuthChecked(true);
+      }
     }
   }, []);
 
+  useEffect(() => {
+    mounted.current = true;
+
+    // One-time session check on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted.current) return;
+      if (session?.user) {
+        resolveProfile(session.user);
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
+        setIsLoadingAuth(false);
+        setAuthChecked(true);
+      }
+    }).catch(() => {
+      if (!mounted.current) return;
+      setIsAuthenticated(false);
+      setIsLoadingAuth(false);
+      setAuthChecked(true);
+    });
+
+    // Auth state listener — only react to explicit sign in / sign out
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted.current) return;
+      supabaseAuth.clearCache();
+
+      if (event === 'SIGNED_IN' && session?.user) {
+        resolveProfile(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        resolving.current = false;
+        setUser(null);
+        setIsAuthenticated(false);
+        setIsLoadingAuth(false);
+        setAuthChecked(true);
+      }
+      // Intentionally ignore TOKEN_REFRESHED — it causes the loop
+    });
+
+    return () => {
+      mounted.current = false;
+      subscription.unsubscribe();
+    };
+  }, [resolveProfile]);
+
   const logout = useCallback(async (shouldRedirect = true) => {
     supabaseAuth.clearCache();
+    resolving.current = false;
     await supabase.auth.signOut();
     setUser(null);
     setIsAuthenticated(false);
@@ -146,14 +128,14 @@ export const AuthProvider = ({ children }) => {
       user,
       isAuthenticated,
       isLoadingAuth,
-      isLoadingPublicSettings,
-      authError,
+      isLoadingPublicSettings: false,
+      authError: null,
       appPublicSettings,
       authChecked,
       logout,
       navigateToLogin,
-      checkUserAuth,
-      checkAppState: checkUserAuth,
+      checkUserAuth: () => {},
+      checkAppState: () => {},
     }}>
       {children}
     </AuthContext.Provider>

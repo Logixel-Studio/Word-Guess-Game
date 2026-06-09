@@ -73,7 +73,7 @@ function createEntity(entityName) {
     /** create(data) */
     async create(data) {
       const payload = { ...data, created_date: new Date().toISOString(), updated_date: new Date().toISOString() };
-      const { data: result, error } = await supabase.from(table).insert(payload).select().single();
+      const { data: result, error } = await supabase.from(table).insert(payload).select().maybeSingle();
       if (error) throw error;
       return result;
     },
@@ -81,7 +81,7 @@ function createEntity(entityName) {
     /** update(id, data) */
     async update(id, data) {
       const payload = { ...data, updated_date: new Date().toISOString() };
-      const { data: result, error } = await supabase.from(table).update(payload).eq('id', id).select().single();
+      const { data: result, error } = await supabase.from(table).update(payload).eq('id', id).select().maybeSingle();
       if (error) throw error;
       return result;
     },
@@ -123,7 +123,7 @@ export const auth = {
       .from('profiles')
       .select('*')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     _cachedProfile = {
       id: user.id,
@@ -173,7 +173,7 @@ export const auth = {
       .update({ ...profileFields, updated_at: new Date().toISOString() })
       .eq('id', user.id)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return updated;
   },

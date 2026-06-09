@@ -1,48 +1,38 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, Lock, Mail, Building2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Mail, Lock, Leaf } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function Login() {
-  const navigate    = useNavigate();
-  const location    = useLocation();
-  const from        = location.state?.from?.pathname || '/';
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from     = location.state?.from?.pathname || '/';
 
+  const [mode,         setMode]         = useState('signin'); // 'signin' | 'signup' | 'forgot'
   const [loading,      setLoading]      = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Sign In state
-  const [signInEmail, setSignInEmail]       = useState('');
-  const [signInPassword, setSignInPassword] = useState('');
-
-  // Sign Up state
-  const [signUpEmail,    setSignUpEmail]    = useState('');
-  const [signUpPassword, setSignUpPassword] = useState('');
-  const [signUpName,     setSignUpName]     = useState('');
-
-  // Forgot Password state
-  const [resetEmail,  setResetEmail]  = useState('');
-  const [resetSent,   setResetSent]   = useState(false);
+  const [email,     setEmail]     = useState('');
+  const [password,  setPassword]  = useState('');
+  const [fullName,  setFullName]  = useState('');
+  const [resetSent, setResetSent] = useState(false);
 
   const handleSignIn = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email: signInEmail.trim(),
-        password: signInPassword,
+        email: email.trim().toLowerCase(),
+        password,
       });
       if (error) throw error;
-      toast.success('Welcome back!');
       navigate(from, { replace: true });
     } catch (err) {
-      toast.error(err.message || 'Sign in failed');
+      toast.error(err.message === 'Invalid login credentials'
+        ? 'Incorrect email or password'
+        : (err.message || 'Sign in failed'));
     } finally {
       setLoading(false);
     }
@@ -50,15 +40,17 @@ export default function Login() {
 
   const handleSignUp = async (e) => {
     e.preventDefault();
+    if (password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
     setLoading(true);
     try {
       const { error } = await supabase.auth.signUp({
-        email: signUpEmail.trim(),
-        password: signUpPassword,
-        options: { data: { full_name: signUpName.trim() } },
+        email: email.trim().toLowerCase(),
+        password,
+        options: { data: { full_name: fullName.trim() } },
       });
       if (error) throw error;
-      toast.success('Account created! Check your email to confirm.');
+      toast.success('Account created! You can now sign in.');
+      setMode('signin');
     } catch (err) {
       toast.error(err.message || 'Sign up failed');
     } finally {
@@ -66,16 +58,15 @@ export default function Login() {
     }
   };
 
-  const handleReset = async (e) => {
+  const handleForgot = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
         redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) throw error;
       setResetSent(true);
-      toast.success('Password reset email sent');
     } catch (err) {
       toast.error(err.message || 'Reset failed');
     } finally {
@@ -84,157 +75,197 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md space-y-6">
-        {/* Logo / Brand */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-2">
-            <Building2 className="w-7 h-7 text-primary" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight">NUTRIMETH BMS</h1>
-          <p className="text-sm text-muted-foreground">Business Management System</p>
+    <div className="min-h-screen bg-[#f5f7f5] flex flex-col items-center justify-center px-4">
+
+      {/* Brand */}
+      <div className="flex flex-col items-center mb-8">
+        <div className="w-14 h-14 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-lg mb-4">
+          <Leaf className="w-7 h-7 text-white" />
         </div>
-
-        <Tabs defaultValue="signin" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="signin">Sign In</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
-          </TabsList>
-
-          {/* ── Sign In ── */}
-          <TabsContent value="signin">
-            <Card>
-              <CardHeader>
-                <CardTitle>Welcome back</CardTitle>
-                <CardDescription>Enter your credentials to access BMS</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="signin-email"
-                        type="email"
-                        placeholder="you@nutrimeth.com"
-                        className="pl-9"
-                        value={signInEmail}
-                        onChange={e => setSignInEmail(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-password">Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="signin-password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="••••••••"
-                        className="pl-9 pr-9"
-                        value={signInPassword}
-                        onChange={e => setSignInPassword(e.target.value)}
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowPassword(v => !v)}
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
-                    Sign In
-                  </Button>
-
-                  {/* Forgot Password */}
-                  <div className="pt-2 border-t">
-                    {!resetSent ? (
-                      <form onSubmit={handleReset} className="space-y-2">
-                        <p className="text-xs text-muted-foreground text-center">Forgot password?</p>
-                        <div className="flex gap-2">
-                          <Input
-                            type="email"
-                            placeholder="Enter your email"
-                            value={resetEmail}
-                            onChange={e => setResetEmail(e.target.value)}
-                            className="text-sm h-8"
-                            required
-                          />
-                          <Button type="submit" variant="outline" size="sm" disabled={loading}>
-                            Reset
-                          </Button>
-                        </div>
-                      </form>
-                    ) : (
-                      <p className="text-xs text-center text-emerald-600">
-                        ✓ Reset link sent — check your inbox
-                      </p>
-                    )}
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* ── Sign Up ── */}
-          <TabsContent value="signup">
-            <Card>
-              <CardHeader>
-                <CardTitle>Create account</CardTitle>
-                <CardDescription>Register a new BMS account</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name">Full Name</Label>
-                    <Input
-                      id="signup-name"
-                      placeholder="Your full name"
-                      value={signUpName}
-                      onChange={e => setSignUpName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="you@nutrimeth.com"
-                      value={signUpEmail}
-                      onChange={e => setSignUpEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
-                    <Input
-                      id="signup-password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="Min 6 characters"
-                      value={signUpPassword}
-                      onChange={e => setSignUpPassword(e.target.value)}
-                      minLength={6}
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
-                    Create Account
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        <h1 className="text-xl font-bold text-gray-900 tracking-wide">NUTRIMETH BMS</h1>
+        <p className="text-sm text-gray-500 mt-1">Business Management System</p>
       </div>
+
+      {/* Card */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-sm px-8 py-8">
+
+        {/* ── SIGN IN ── */}
+        {mode === 'signin' && (
+          <>
+            <h2 className="text-xl font-bold text-gray-900 mb-1">Welcome back</h2>
+            <p className="text-sm text-gray-500 mb-6">Sign in to your NUTRIMETH account</p>
+
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="email"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-4 py-3 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
+                />
+              </div>
+
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-10 py-3 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
+                />
+                <button type="button" onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+
+              <div className="flex justify-end">
+                <button type="button" onClick={() => setMode('forgot')}
+                  className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                  Forgot password?
+                </button>
+              </div>
+
+              <button type="submit" disabled={loading}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-xl transition disabled:opacity-60 flex items-center justify-center gap-2">
+                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Sign In
+              </button>
+            </form>
+
+            <p className="text-center text-sm text-gray-500 mt-6">
+              Don't have an account?{' '}
+              <button onClick={() => setMode('signup')}
+                className="text-emerald-600 hover:text-emerald-700 font-semibold">
+                Sign Up
+              </button>
+            </p>
+          </>
+        )}
+
+        {/* ── SIGN UP ── */}
+        {mode === 'signup' && (
+          <>
+            <h2 className="text-xl font-bold text-gray-900 mb-1">Create account</h2>
+            <p className="text-sm text-gray-500 mb-6">Join NUTRIMETH BMS</p>
+
+            <form onSubmit={handleSignUp} className="space-y-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Full name"
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
+                />
+              </div>
+
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="email"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-4 py-3 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
+                />
+              </div>
+
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Password (min 6 characters)"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  minLength={6}
+                  required
+                  className="w-full pl-10 pr-10 py-3 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
+                />
+                <button type="button" onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+
+              <button type="submit" disabled={loading}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-xl transition disabled:opacity-60 flex items-center justify-center gap-2">
+                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Create Account
+              </button>
+            </form>
+
+            <p className="text-center text-sm text-gray-500 mt-6">
+              Already have an account?{' '}
+              <button onClick={() => setMode('signin')}
+                className="text-emerald-600 hover:text-emerald-700 font-semibold">
+                Sign In
+              </button>
+            </p>
+          </>
+        )}
+
+        {/* ── FORGOT PASSWORD ── */}
+        {mode === 'forgot' && (
+          <>
+            <h2 className="text-xl font-bold text-gray-900 mb-1">Reset password</h2>
+            <p className="text-sm text-gray-500 mb-6">Enter your email to receive a reset link</p>
+
+            {resetSent ? (
+              <div className="text-center py-4">
+                <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3">
+                  <Mail className="w-6 h-6 text-emerald-600" />
+                </div>
+                <p className="text-sm font-medium text-gray-900">Check your inbox</p>
+                <p className="text-xs text-gray-500 mt-1">Reset link sent to {email}</p>
+                <button onClick={() => { setMode('signin'); setResetSent(false); }}
+                  className="mt-4 text-sm text-emerald-600 font-semibold hover:text-emerald-700">
+                  Back to Sign In
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleForgot} className="space-y-4">
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    className="w-full pl-10 pr-4 py-3 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
+                  />
+                </div>
+                <button type="submit" disabled={loading}
+                  className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-xl transition disabled:opacity-60 flex items-center justify-center gap-2">
+                  {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Send Reset Link
+                </button>
+              </form>
+            )}
+
+            {!resetSent && (
+              <p className="text-center text-sm text-gray-500 mt-6">
+                <button onClick={() => setMode('signin')}
+                  className="text-emerald-600 hover:text-emerald-700 font-semibold">
+                  ← Back to Sign In
+                </button>
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      <p className="text-xs text-gray-400 mt-6 text-center">
+        Shared team system — all data is visible to all team members
+      </p>
     </div>
   );
 }
