@@ -1,3 +1,20 @@
+// {
+//   "compilerOptions": {
+//     "baseUrl": ".",
+//     "paths": {
+//       "@/*": ["./src/*"]
+//     },
+//     "jsx": "react-jsx",
+//     "module": "ESNext",
+//     "moduleResolution": "bundler",
+//     "target": "ES2020",
+//     "lib": ["ES2020", "DOM", "DOM.Iterable"],
+//     "strict": false,
+//     "noEmit": true
+//   },
+//   "include": ["src/**/*", "vite.config.js"]
+// }
+
 {
   "compilerOptions": {
     "baseUrl": ".",
@@ -5,12 +22,30 @@
       "@/*": ["./src/*"]
     },
     "jsx": "react-jsx",
-    "module": "ESNext",
+    "module": "esnext",
     "moduleResolution": "bundler",
-    "target": "ES2020",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "strict": false,
-    "noEmit": true
+    "lib": ["esnext", "dom"],
+    "target": "esnext",
+    "checkJs": true,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "types": [],
+    "ignoreDeprecations": "6.0"
   },
-  "include": ["src/**/*", "vite.config.js"]
+  "include": [
+    "src/components/**/*.js",
+    "src/pages/**/*.jsx",
+    "src/Layout.jsx",
+    "src"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/vite-plugins",
+    "src/components/ui",
+    "src/api",
+    "src/lib"
+  ]
 }

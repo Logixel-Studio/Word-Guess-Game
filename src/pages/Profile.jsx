@@ -70,10 +70,10 @@ export default function Profile() {
   return (
     <div>
       <PageHeader title="Profile" description="Your account information">
-        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="gap-2">
+        {/* <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="gap-2">
           <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
           Refresh Role
-        </Button>
+        </Button> */}
       </PageHeader>
 
       <div className="max-w-2xl mx-auto space-y-6">
@@ -93,13 +93,13 @@ export default function Profile() {
                 <div>
                   <p className="text-lg font-semibold">{user.full_name || 'User'}</p>
                   <p className="text-sm text-muted-foreground">{user.email}</p>
-                  <Badge className={cn('mt-1 text-xs', roleColor)}>{roleLabel}</Badge>
+                  {/* <Badge className={cn('mt-1 text-xs', roleColor)}>{roleLabel}</Badge> */}
                   <div className="mt-3">
-                    <Label htmlFor="avatar-upload"
+                    {/* <Label htmlFor="avatar-upload"
                       className="cursor-pointer text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90 transition flex items-center gap-1 w-fit">
                       {uploading && <Loader2 className="w-3 h-3 animate-spin" />}
                       {uploading ? 'Uploading...' : 'Change Photo'}
-                    </Label>
+                    </Label> */}
                     <Input id="avatar-upload" type="file" accept="image/*"
                       onChange={handleUpload} className="hidden" disabled={uploading} />
                   </div>
@@ -122,11 +122,11 @@ export default function Profile() {
                 <div className="flex items-center gap-2 mt-1">
                   <Shield className="w-4 h-4 text-primary" />
                   <span className="text-sm font-medium">{roleLabel}</span>
-                  <Badge variant="outline" className={cn('text-xs', roleColor)}>{user.role}</Badge>
+                  {/* <Badge variant="outline" className={cn('text-xs', roleColor)}>{user.role}</Badge> */}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
+                {/* <p className="text-xs text-muted-foreground mt-1">
                   If your role was recently changed by an admin, click "Refresh Role" above.
-                </p>
+                </p> */}
               </div>
             </CardContent>
           </Card>

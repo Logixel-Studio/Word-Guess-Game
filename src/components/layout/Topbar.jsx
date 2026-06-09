@@ -69,9 +69,9 @@ export default function Topbar({ onMobileMenuToggle }) {
             <DropdownMenuItem asChild>
               <Link to="/profile"><UserCircle className="w-4 h-4 mr-2" /> Profile</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
+            {/* <DropdownMenuItem asChild>
               <Link to="/settings"><Settings className="w-4 h-4 mr-2" /> Settings</Link>
-            </DropdownMenuItem>
+            </DropdownMenuItem> */}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => logout()} className="text-destructive focus:text-destructive">
               <LogOut className="w-4 h-4 mr-2" /> Log Out
