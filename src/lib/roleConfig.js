@@ -148,7 +148,7 @@ export const NAV_GROUPS = {
     {
       label: 'System',
       items: [
-        { path: '/user-management', label: 'User Management', icon: Shield },
+        // { path: '/user-management', label: 'User Management', icon: Shield },
         { path: '/settings', label: 'Settings', icon: Settings },
         { path: '/profile', label: 'Profile', icon: UserCircle },
       ]
